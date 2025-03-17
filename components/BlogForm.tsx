@@ -2,8 +2,15 @@
 
 import { useActionState } from "react"
 
-export default function BlogForm({handler, post}){
+// Define the PostCard type
+type PostCard = {
+    _id: string;
+    title: string;
+    content: string;
+    userId: string;
+};
 
+export default function BlogForm({handler, post} : {handler: any, post?: PostCard}){
     const [state, action, isPending] = useActionState(handler, undefined)
 
     return (
@@ -17,7 +24,7 @@ export default function BlogForm({handler, post}){
                 )} 
 
                 <label htmlFor="content">Content</label>
-                <textarea name="content" id="content" rows="6" defaultValue={state?.content || post?.content}></textarea>
+                <textarea name="content" id="content" rows={6} defaultValue={state?.content || post?.content}></textarea>
                 {state?.errors?.content && (
                     <p className="error">{state.errors.content}</p>
                 )}

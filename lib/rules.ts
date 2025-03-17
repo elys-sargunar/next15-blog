@@ -32,17 +32,20 @@ export const BlogPostSchema = z.object({
     content: string().min(1, {message: "Content field is required."}).trim(),
 })
 
-// Zod schema for a single food item
+const foodItemCategory = z.object({
+    name: z.string().min(1,"Food category name is required"),
+    expiryDate: z.date().optional() // optional expiry date for category i.e seasonal promotions
+})
+
 const foodItemSchema = z.object({
-    id: z.string().uuid("Invalid order ID"), // Unique food item ID
-    name: z.string().min(1, "Food item name is required"), // name of the food item
-    category: z.string(), // food item category
-    quantity: z.number().min(1, "Quantity should be at least 1"), // quantity ordered
-    price: z.number().min(0, "Price must be a positive value"), // price of the food item
-    specialInstruction: z.string().optional(), // Optional special instructions for the order
-    restrictions: z.array(string()).optional() // Optional restrictions like 18+
+    name: z.string().min(1, "Food item name is required"),
+    category: z.array(foodItemCategory).nonempty("At least one item category is required"), // array of ordered food item categories
+    quantity: z.number().min(1, "Quantity should be at least 1"),
+    price: z.number().min(0, "Price must be a positive value"),
+    specialInstructions: z.string().optional(),
   });
   
+
   // Zod schema for the food order
   const foodOrderSchema = z.object({
     orderId: z.string().uuid("Invalid order ID"), // Unique order ID
@@ -52,4 +55,5 @@ const foodItemSchema = z.object({
     totalPrice: z.number().min(0, "Total price must be a positive value"), // total price
     currency:  z.string(), // customer currency
     specialInstructions: z.string().optional(), // Optional special instructions for the order
+    orderPlacedAt: z.date(), // Date and time when the order was placed (includes time)
   });

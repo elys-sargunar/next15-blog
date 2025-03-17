@@ -5,12 +5,9 @@ import getAuthUser from "@/lib/getAuthUser";
 import { ObjectId } from "mongodb";
 import { redirect } from "next/navigation";
 
-export default async function Edit({params}){
-
-    const {id} = await params
-
+export default async function Edit({ params }: { params: { id: string } }) {
+    const { id } = params;    
     const user = await getAuthUser()
-
     const postsCollection = await getCollection("posts")
 
     let post
@@ -24,8 +21,6 @@ export default async function Edit({params}){
     else {
         post = null
     }
-
-
 
     return (
         <div className="container w-1/2">
