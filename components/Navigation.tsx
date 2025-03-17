@@ -8,8 +8,10 @@ export default async function Navigation(){
     // console.log(authUser)
     return (
         <nav>
-            <NavLink label="Home" href="/"></NavLink>
-            
+            <div>
+                <NavLink label="Home" href="/"></NavLink>
+                <NavLink label="Menu" href="/menu"></NavLink>
+            </div>
             {authUser ? 
             (<div className="flex items-center">
                 <NavLink label="New Post" href="/posts/create"></NavLink>
@@ -23,8 +25,7 @@ export default async function Navigation(){
                 <NavLink label="Register" href="/register"></NavLink>
                 <NavLink label="Login" href="/login"></NavLink>       
             </div>)
-            }             
-           
+            }                        
         </nav>
     )
 }

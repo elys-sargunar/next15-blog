@@ -31,3 +31,25 @@ export const BlogPostSchema = z.object({
     title: string().min(1, {message: "Title field is required."}).max(100, {message: "Title must be under 100 characters."}).trim(),
     content: string().min(1, {message: "Content field is required."}).trim(),
 })
+
+// Zod schema for a single food item
+const foodItemSchema = z.object({
+    id: z.string().uuid("Invalid order ID"), // Unique food item ID
+    name: z.string().min(1, "Food item name is required"), // name of the food item
+    category: z.string(), // food item category
+    quantity: z.number().min(1, "Quantity should be at least 1"), // quantity ordered
+    price: z.number().min(0, "Price must be a positive value"), // price of the food item
+    specialInstruction: z.string().optional(), // Optional special instructions for the order
+    restrictions: z.array(string()).optional() // Optional restrictions like 18+
+  });
+  
+  // Zod schema for the food order
+  const foodOrderSchema = z.object({
+    orderId: z.string().uuid("Invalid order ID"), // Unique order ID
+    tableNumber: z.number().min(1, "Table number must be a positive integer").optional(), // table number
+    customer: z.string().min(1, "Customer name is required"), // customer name
+    items: z.array(foodItemSchema).nonempty("At least one food item is required"), // array of ordered food items
+    totalPrice: z.number().min(0, "Total price must be a positive value"), // total price
+    currency:  z.string(), // customer currency
+    specialInstructions: z.string().optional(), // Optional special instructions for the order
+  });
