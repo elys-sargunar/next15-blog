@@ -30,12 +30,6 @@ export async function getCollection(collectionName: string){
     return null
 }
 
-export async function getMenuCategories(currentDate: Date){
-    const db = await GetDB("TestCluster")
-    if(db) return db.collection("menuCategories")
-    return null
-}
-
 export async function isValidPassword(password: string, hashedPassword: string){
     return (await hashPassword(password)) === hashedPassword
 }
