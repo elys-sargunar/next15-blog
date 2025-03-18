@@ -19,6 +19,7 @@
     "@react-email/components": "^0.0.34",
     "@stripe/react-stripe-js": "^3.4.0",
     "@stripe/stripe-js": "^6.1.0",
+    "embla-carousel-autoplay": "^8.5.2",
     "embla-carousel-react": "^8.5.2",
     "jose": "^5.9.6",
     "lucide-react": "^0.482.0",

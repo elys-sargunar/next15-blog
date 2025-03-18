@@ -1,45 +1,56 @@
-import { getCollection } from "@/lib/db";
+import { getCollection, getMenuCategories } from "@/lib/db";
+import Link from "next/link";
+import * as React from "react"
+import Autoplay from "embla-carousel-autoplay"
+ 
+import { Card, CardContent } from "@/components/ui/card"
 import {
-    Carousel,
-    CarouselContent,
-    CarouselItem,
-    CarouselNext,
-    CarouselPrevious,
-  } from "@/components/ui/carousel"
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel"
+import { date } from "zod";
 
 
+export default async function Menu() {
+  const menuCollection = await getMenuCategories(new Date(Date.now()))
 
-export default async function MenuPage(){
-    const menuItems = await getCollection("menuItems")
+  if(!menuCollection) return <p>Failed to fetch menu categories data.</p>
 
-    const menuCategories = await getCollection("menuCategories")
-    const menuCategoryItems = await menuCategories?.find({}).toArray()
+  if(await menuCollection.countDocuments() === 0) return <p>You don't have any menu categories yet.</p>
+  
+  // Fetch menu items from the collection
+  const menuItems = await menuCollection.find({}).toArray();
 
-    if(!menuItems) return <p>Failed to fetch menuItems data.</p>
-    if(!menuCategories) return <p>Failed to fetch menuCategories data.</p>
-
-    console.log(menuCategoryItems)
-
-    return ( 
-        <>
-            <p>Menu Categories:</p>
-            {menuCategoryItems && (
-                <>
-                    <p>Yes!</p>
-                    <Carousel opts={{
-                        align: "start",
-                        loop: true,
-                    }}>
-                        <CarouselContent>
-                            {menuCategoryItems?.map((menuCategoryItem) => (
-                                <CarouselItem key={menuCategoryItem._id.toString()}>{menuCategoryItem.name}</CarouselItem>
-                            ))}
-                        </CarouselContent>
-                        <CarouselPrevious />
-                        <CarouselNext />
-                    </Carousel>
-                </>
-            )}
-        </>
-    )
+  return (
+    <div>
+      <h1 className="title">Menu Categories</h1>
+      {menuItems.length > 0 && (
+        <Carousel opts={{
+            align: "start",
+            loop: true,            
+        }}
+        >
+            <CarouselContent className="-ml-1">
+                {menuItems?.map((menuCategoryItem) => (
+                    <CarouselItem key={menuCategoryItem._id.toString()} className="md:basis-1/2 lg:basis-1/3">
+                    <div className="p-1">
+                      <Card>
+                        <CardContent className="flex aspect-square items-center justify-center p-6">
+                          <span className="text-2xl font-semibold">{menuCategoryItem.name}</span>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </CarouselItem>
+                ))}        
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+        </Carousel>
+      )
+      }
+    </div>
+  )
 }
