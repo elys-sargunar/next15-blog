@@ -8,35 +8,57 @@ export default function OrderPage() {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
 
   const handlePlaceOrder = async () => {
     if (items.length === 0) return;
 
     setIsSubmitting(true);
+    setOrderError(null);
 
     try {
-      // In a real app, you would send the order to your backend
-      // await fetch('/api/orders', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     items: items.map(item => ({
-      //       id: item.item._id.toString(),
-      //       name: item.item.name,
-      //       price: item.item.price,
-      //       quantity: item.quantity
-      //     })),
-      //     totalPrice
-      //   })
-      // });
+      // Prepare order data
+      const orderData = {
+        items: items.map(item => ({
+          id: typeof item.item._id === 'string' ? item.item._id : item.item._id.toString(),
+          name: item.item.name,
+          price: item.item.price,
+          quantity: item.quantity
+        })),
+        totalPrice,
+        customerInfo: {
+          // In a real app, you might collect this from a form
+          name: "Guest User",
+          email: "",
+          address: ""
+        }
+      };
 
-      // For now, simulate an API call
-      await new Promise(resolve => setTimeout(resolve, 15000));
+      // Submit order to API
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to place order');
+      }
+
+      // Store the order ID for reference
+      setOrderId(result.orderId);
       
+      // Clear the cart
       clearCart();
+      
+      // Show success message
       setOrderPlaced(true);
     } catch (error) {
       console.error("Failed to place order:", error);
+      setOrderError(error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setIsSubmitting(false);
     }
@@ -50,6 +72,11 @@ export default function OrderPage() {
           <p className="mb-6 text-green-700">
             Thank you for your order. Your delicious food will be prepared shortly.
           </p>
+          {orderId && (
+            <p className="mb-6 text-green-700">
+              Order ID: <span className="font-semibold">{orderId}</span>
+            </p>
+          )}
           <Link 
             href="/menu" 
             className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -100,7 +127,7 @@ export default function OrderPage() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {items.map((cartItem) => (
-                  <tr key={cartItem.item._id.toString()}>
+                  <tr key={typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString()}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div>
@@ -122,7 +149,7 @@ export default function OrderPage() {
                       <div className="flex items-center">
                         <button
                           onClick={() => updateQuantity(
-                            cartItem.item._id.toString(), 
+                            typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString(), 
                             cartItem.quantity - 1
                           )}
                           disabled={cartItem.quantity <= 1}
@@ -133,7 +160,7 @@ export default function OrderPage() {
                         <span className="mx-2 text-sm">{cartItem.quantity}</span>
                         <button
                           onClick={() => updateQuantity(
-                            cartItem.item._id.toString(), 
+                            typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString(), 
                             cartItem.quantity + 1
                           )}
                           className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300"
@@ -147,7 +174,7 @@ export default function OrderPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        onClick={() => removeItem(cartItem.item._id.toString())}
+                        onClick={() => removeItem(typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString())}
                         className="text-red-600 hover:text-red-900"
                       >
                         Remove
@@ -169,6 +196,12 @@ export default function OrderPage() {
               </tfoot>
             </table>
           </div>
+
+          {orderError && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">
+              {orderError}
+            </div>
+          )}
 
           <div className="flex justify-between">
             <button

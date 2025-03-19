@@ -65,7 +65,7 @@ export type FoodCategory = z.infer<typeof foodItemCategory>
 
 // Define the Food Item schema
 export const foodItemSchema = z.object({
-    _id: z.string().optional(),
+    _id: z.string(),
     name: z.string().min(1),                  // Food name
     description: z.string().optional(),       // Food description (optional)
     price: z.number().min(0),                 // Price of the food item

@@ -39,6 +39,11 @@ const CartContext = createContext<CartContextType>({
 // Custom hook to use the cart context
 export const useCart = () => useContext(CartContext);
 
+// Helper function to get string ID
+const getStringId = (id: string | { toString(): string }): string => {
+  return typeof id === 'string' ? id : id.toString();
+};
+
 // Provider component
 export function CartProvider({ children }: { children: ReactNode }) {
   // Initialize state from localStorage if available
@@ -66,61 +71,46 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items, mounted]);
 
-  // Add item to cart
+  // Add item to cart - completely rewritten for simplicity and reliability
   const addItem = (item: FoodItemWithId) => {
-    setItems((prevItems) => {
-      const existingItemIndex = prevItems.findIndex(
-        (cartItem) => {
-          const itemId = typeof item._id === 'string' 
-            ? item._id 
-            : item._id.toString();
-          
-          const cartItemId = typeof cartItem.item._id === 'string'
-            ? cartItem.item._id
-            : cartItem.item._id.toString();
-            
-          return cartItemId === itemId;
-        }
-      );
-
-      if (existingItemIndex >= 0) {
-        // Item exists, update quantity
-        const newItems = [...prevItems];
-        newItems[existingItemIndex].quantity += 1;
-        return newItems;
-      } else {
-        // Add new item
-        return [...prevItems, { item, quantity: 1 }];
-      }
-    });
+    const itemId = getStringId(item._id);
+    
+    // Create a completely new array to ensure React detects the change
+    const newItems = [...items];
+    
+    // Find the index of the item if it exists
+    const index = newItems.findIndex(cartItem => getStringId(cartItem.item._id) === itemId);
+    
+    if (index >= 0) {
+      // Item exists - create a new object with incremented quantity
+      newItems[index] = {
+        ...newItems[index],
+        quantity: newItems[index].quantity + 1
+      };
+    } else {
+      // Item doesn't exist - add new item with quantity 1
+      newItems.push({
+        item,
+        quantity: 1
+      });
+    }
+    
+    // Set the entire new array as state
+    setItems(newItems);
   };
 
   // Remove item from cart
   const removeItem = (itemId: string) => {
-    setItems((prevItems) =>
-      prevItems.filter((item) => {
-        const cartItemId = typeof item.item._id === 'string'
-          ? item.item._id
-          : item.item._id.toString();
-        
-        return cartItemId !== itemId;
-      })
-    );
+    setItems(items.filter(item => getStringId(item.item._id) !== itemId));
   };
 
   // Update item quantity
   const updateQuantity = (itemId: string, quantity: number) => {
-    setItems((prevItems) =>
-      prevItems.map((item) => {
-        const cartItemId = typeof item.item._id === 'string'
-          ? item.item._id
-          : item.item._id.toString();
-        
-        return cartItemId === itemId
-          ? { ...item, quantity: Math.max(1, quantity) }
-          : item;
-      })
-    );
+    setItems(items.map(item => 
+      getStringId(item.item._id) === itemId
+        ? { ...item, quantity: Math.max(1, quantity) }
+        : item
+    ));
   };
 
   // Clear cart

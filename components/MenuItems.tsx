@@ -24,7 +24,7 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
     // Reset after 2 seconds
     setTimeout(() => {
       setAddedItems(prev => ({ ...prev, [itemId]: false }));
-    }, 2000);
+    }, 1000);
   };
 
   return (
@@ -39,7 +39,7 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
             className="border rounded-lg overflow-hidden shadow-md bg-white"
           >
             <div className="h-48 bg-gray-200 relative">
-              {/* Placeholder for food image - in a real app, you'd use actual images */}
+              {/* Placeholder for food image */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="text-gray-500">Food Image</span>
               </div>
@@ -72,7 +72,8 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
                 {item.allergies && item.allergies.length > 0 && (
                   <p>Allergies: {item.allergies.join(", ")}</p>
                 )}
-                <p>Calories: {item.nutritionalInfo?.calories}</p>
+                <small>Calories: {item.nutritionalInfo?.calories}</small>
+                <small>{item.menuCategory?.map((cat: any) => cat.name).join(", ")}</small>
               </div>
             </div>
           </div>
