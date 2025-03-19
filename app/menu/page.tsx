@@ -55,6 +55,7 @@ export default async function Menu() {
         </section>
 
         <section>
+            <h2 className="font-semibold mb-4 text-center">Appetisers</h2>
             <ProductGrid category="Appetisers"></ProductGrid>
         </section>
         

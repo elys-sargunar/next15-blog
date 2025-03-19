@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button } from "./ui/button";
 import { foodItemCategory, foodItemSchema } from "@/lib/rules";
 
-export default async function ProductTable({items, schema}){
+export default async function ProductTable({items, schema} : {items: any, schema: any}){
 
     //console.log({items})
     //console.log({schema})
@@ -20,17 +20,17 @@ export default async function ProductTable({items, schema}){
                     </thead>
                     <tbody>                                        
                         {/*  Content for foodItemSchema will be rendered here */}
-                        {items?.map((schema) => (
-                            <tr key={schema._id.toString()}>
+                        {items?.map((item: any) => (
+                            <tr key={item._id.toString()}>
                                 <td className="w-3/6">
-                                    <Link href={`/posts/show/${schema._id.toString()}`}>{schema.name}</Link>
+                                    <Link href={`/posts/show/${item._id.toString()}`}>{item.name}</Link>
                                 </td>
                                 <td className="w-1/6 text-blue-500">
-                                    <span>£{schema.price / 100}</span>
+                                    <span>£{item.price / 100}</span>
                                 </td>
                                 <td className="w-1/6 text-red-500">                
                                     <form>
-                                        <input type="hidden" name="postId" defaultValue={schema._id.toString()}/>
+                                        <input type="hidden" name="postId" defaultValue={item._id.toString()}/>
                                         <Button type="submit">Add</Button>
                                     </form>
                                 </td>
@@ -48,13 +48,13 @@ export default async function ProductTable({items, schema}){
                     </thead>
                     <tbody>                                        
                         {/*  Content for foodItemCategory will be rendered here */}
-                        {items?.map((schema) => (
-                            <tr key={schema._id.toString()}>
+                        {items?.map((item: any) => (
+                            <tr key={item._id.toString()}>
                                 <td className="w-3/6">
-                                    <Link href={`/posts/show/${schema._id.toString()}`}>{schema.name}</Link>
+                                    <Link href={`/posts/show/${item._id.toString()}`}>{item.name}</Link>
                                 </td>                           
                                 <td className="w-1/6 text-blue-500">
-                                    <span>{schema.expiryDate}</span>
+                                    <span>{item.expiryDate}</span>
                                 </td>                                                                                     
                             </tr>
                         ))}

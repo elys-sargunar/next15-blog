@@ -10,7 +10,7 @@ export default async function Dashboard() {
 
   const postsCollection = await getCollection("posts")
   const userPosts = await postsCollection
-  ?.find({ userId: ObjectId.createFromHexString(user.userId) }).toArray()
+  ?.find({ userId: ObjectId.createFromHexString(user?.userId as string) }).toArray()
 
   if(!userPosts) return <p>Failed to fetch data.</p>
 
