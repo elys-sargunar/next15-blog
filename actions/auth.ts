@@ -37,7 +37,7 @@ export async function register(state:any, formData:any){
     const existingUser = await userCollection.findOne({email})
     if(existingUser){
         return {errors: {email: "Email already exists."}}
-    }
+    }    
 
     // Process the password field by hashing password
     const hashedPassword = await hashPassword(password);

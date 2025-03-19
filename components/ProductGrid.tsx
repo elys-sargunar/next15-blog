@@ -13,7 +13,7 @@ export default async function ProductGrid(category: any){
 
   if(dbItems){
     return (
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-6 my-16">
         {
           dbItems.map((menuItem: any) => (
             <div key={menuItem._id.toString()}>
