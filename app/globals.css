@@ -154,10 +154,10 @@
     @apply p-6 rounded-lg shadow-lg bg-white mx-auto;
   }
   .btn-primary {
-    @apply text-white bg-indigo-600 px-14 py-1.5 rounded-md shadow-sm hover:bg-indigo-700 active:ring-2 ring-offset-1 ring-indigo-700 disabled:bg-slate-300 disabled:text-slate-100 disabled:cursor-not-allowed;
+    @apply text-white bg-slate-800 px-14 py-1.5 rounded-md shadow-sm hover:bg-green-700 active:ring-2 ring-offset-1 ring-green-700 disabled:bg-slate-300 disabled:text-slate-100 disabled:cursor-not-allowed;
   }
   .text-link {
-    @apply text-sm text-indigo-600 hover:text-indigo-700 underline;
+    @apply text-sm text-slate-800 hover:text-green-700 underline;
   }
   .nav-link {
     @apply text-slate-200 hover:bg-slate-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium;

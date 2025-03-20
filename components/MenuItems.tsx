@@ -2,6 +2,7 @@
 
 import { useCart, FoodItemWithId } from "@/lib/CartContext";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 
 type MenuItemsProps = {
@@ -40,13 +41,17 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
           >
             <div className="h-48 bg-gray-200 relative">
               {/* Placeholder for food image */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-gray-500">Food Image</span>
-              </div>
+              <Link href={`/menu/${itemId}`}>
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-gray-500">Food Image</span>
+                </div>
+              </Link>
             </div>
             
             <div className="p-4">
-              <h3 className="text-xl font-semibold mb-2">{item.name}</h3>
+              <h3 className="text-xl font-semibold mb-2">
+                <Link href={`/menu/${itemId}`}>{item.name}</Link>
+              </h3>
               
               {item.description && (
                 <p className="text-gray-600 mb-3">{item.description}</p>
@@ -57,7 +62,7 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
                 
                 <button
                   onClick={() => handleAddToCart(item)}
-                  className={`px-4 py-2 rounded-full ${
+                  className={`btn-primary px-4 py-2 rounded-full ${
                     addedItems[itemId]
                       ? "bg-green-500 shadow-md text-white"
                       : "bg-slate-800 shadow-md text-white"
