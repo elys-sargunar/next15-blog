@@ -17,7 +17,7 @@ export default function MenuItemCard({menuItem} : {menuItem: FoodItem}){
             <p className="text-slate-400 text-xs">
                 {categoryDisplay()}
             </p>
-            <Link href={`/posts/show/${menuItem.name}`} className="block text-xl font-semibold mb-4">
+            <Link href={`/menu/${menuItem._id}`} className="block text-xl font-semibold mb-4">
                 {menuItem.name}
             </Link>
             <p className="text-sm">£{menuItem.price / 100}</p>
