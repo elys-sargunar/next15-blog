@@ -74,7 +74,9 @@ export const foodItemSchema = z.object({
     allergies: allergiesSchema,               // Allergens in the food item
     supplier: supplierSchema,                 // Supplier information
     available: z.boolean().default(true),     // Whether the item is available on the menu
-    menuCategory: z.array(foodItemCategory).optional()
+    menuCategory: z.array(foodItemCategory).optional(),
+    image: z.string().optional(),
+    isFeatured: z.boolean().default(false)
 });
 export type FoodItem = z.infer<typeof foodItemSchema>
 
@@ -119,8 +121,7 @@ menuCategory: [{
     name: "Appetizers",
     expiryDate: new Date("2025-03-20"),
     available: true,
-}]
+}],
+image: "https://via.placeholder.com/150",
+isFeatured: false
 };
-
-// Validate the food item
-const validatedFoodItem = foodItemSchema.parse(foodItemExample)

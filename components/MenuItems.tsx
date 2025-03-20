@@ -59,8 +59,8 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
                   onClick={() => handleAddToCart(item)}
                   className={`px-4 py-2 rounded-full ${
                     addedItems[itemId]
-                      ? "bg-green-500 text-white"
-                      : "bg-blue-600 text-white"
+                      ? "bg-green-500 shadow-md text-white"
+                      : "bg-slate-800 shadow-md text-white"
                   } transition-colors`}
                 >
                   {addedItems[itemId] ? "Added!" : "Add to Order"}

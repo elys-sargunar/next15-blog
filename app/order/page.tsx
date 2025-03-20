@@ -104,7 +104,7 @@ export default function OrderPage() {
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+          <div className="bg-white overflow-hidden mb-8">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>

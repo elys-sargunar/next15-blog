@@ -3,6 +3,7 @@
 import NavLink from "./NavLink";
 import Link from "next/link";
 import CartIcon from "./CartIcon";
+import { logout } from "@/actions/auth";
 
 type ClientNavigationProps = {
   authUser: { userId: string } | null;
@@ -15,8 +16,9 @@ export default function ClientNavigation({ authUser }: ClientNavigationProps) {
         <>
           <NavLink label="New Post" href="/posts/create"></NavLink>
           <NavLink label="Dashboard" href="/dashboard"></NavLink>
+          <NavLink label="My Orders" href="/my-orders"></NavLink>
           <CartIcon />
-          <form action="/api/logout" method="POST">
+          <form action={logout}>
             <button className="nav-link">Logout</button>
           </form>
         </>

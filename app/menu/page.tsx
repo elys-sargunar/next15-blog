@@ -111,7 +111,7 @@ export default function MenuPage() {
                   <Card 
                     className={`cursor-pointer transition-colors ${
                       selectedCategory === category.name 
-                        ? 'border-2 border-blue-500 bg-blue-50' 
+                        ? 'border-2 border-slate-800 bg-blue-50' 
                         : ''
                     }`}
                     onClick={() => handleCategoryClick(category.name)}
@@ -119,7 +119,7 @@ export default function MenuPage() {
                     <CardContent className="flex aspect-square items-center justify-center p-6">
                       <span className={`text-xl font-semibold ${
                         selectedCategory === category.name 
-                          ? 'text-blue-700' 
+                          ? 'text-slate-800' 
                           : ''
                       }`}>
                         {category.name}
