@@ -25,7 +25,7 @@ export default function MenuItemDetail() {
         const itemId = Array.isArray(id) ? id[0] : id;
         const menuItemData = await getMenuItemById(itemId as string);
         
-        setMenuItem(menuItemData);
+        setMenuItem(menuItemData as FoodItemWithId);
         setLoading(false);
       } catch (err) {
         setError('Failed to load menu item');

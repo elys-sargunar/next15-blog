@@ -69,7 +69,7 @@ export const foodItemSchema = z.object({
     name: z.string().min(1),                  // Food name
     description: z.string().optional(),       // Food description (optional)
     price: z.number().min(0),                 // Price of the food item
-    quantity: z.number().min(1),              // Quantity of the food item
+    quantity: z.number().min(1),              // Quantity of the food item left in sto
     nutritionalInfo: nutritionalInfoSchema,   // Nutritional Information
     allergies: allergiesSchema,               // Allergens in the food item
     supplier: supplierSchema,                 // Supplier information
