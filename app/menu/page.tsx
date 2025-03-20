@@ -86,7 +86,7 @@ export default function MenuPage() {
   }
 
   return (
-    <div className="mx-auto px-4 py-8">
+    <div className="container shadow-none mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Our Menu</h1>
       
       {/* Categories Carousel */}
@@ -105,9 +105,9 @@ export default function MenuPage() {
         
         {categories.length > 0 && (
           <Carousel opts={{ align: "start", loop: true }}>
-            <CarouselContent className="-ml-4">
+            <CarouselContent className="-ml-4 max-w-screen-lg mx-auto">
               {categories.map((category: any) => (
-                <CarouselItem key={category._id} className="pl-4 sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
+                <CarouselItem key={category._id} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/5 lg:basis-1/6 xl:basis-1/6">
                   <Card 
                     className={`cursor-pointer transition-colors ${
                       selectedCategory === category.name 
@@ -117,7 +117,7 @@ export default function MenuPage() {
                     onClick={() => handleCategoryClick(category.name)}
                   >
                     <CardContent className="flex aspect-square items-center justify-center p-6">
-                      <span className={`text-xl font-semibold ${
+                      <span className={`text-lg md:text-xl font-semibold text-center leading-6 ${
                         selectedCategory === category.name 
                           ? 'text-slate-800' 
                           : ''
@@ -129,8 +129,8 @@ export default function MenuPage() {
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious />
-            <CarouselNext />
+            <CarouselPrevious className="bg-slate-800 text-white" style={{left: '-1.5rem'}}/>
+            <CarouselNext className="bg-slate-800 text-white" style={{right: '-2.5rem'}}/>
           </Carousel>
         )}
       </section>
@@ -139,7 +139,7 @@ export default function MenuPage() {
       <section>
         <h2 className="text-2xl font-semibold mb-4">
           {selectedCategory 
-            ? `${selectedCategory} Menu Items` 
+            ? `${selectedCategory} Items` 
             : 'All Menu Items'}
         </h2>
         {filteredMenuItems.length > 0 ? (

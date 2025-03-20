@@ -37,7 +37,7 @@ export default function GuestOrdersView() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <h1 className="text-3xl font-bold mb-8">Order Lookup</h1>
       
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+      <div className="p-6 mb-8 bg-slate-100 rounded">
         <p className="mb-4">Enter your order ID to track your order:</p>
         
         <form onSubmit={handleOrderLookup} className="flex flex-col md:flex-row gap-4">
@@ -51,7 +51,7 @@ export default function GuestOrdersView() {
           <button
             type="submit"
             disabled={isLoading}
-            className={`px-6 py-2 rounded-lg text-white transition ${
+            className={`btn-primary px-6 py-2 rounded-lg text-white transition ${
               isLoading ? "bg-green-400" : "bg-slate-800 hover:bg-green-700"
             }`}
           >
@@ -96,7 +96,7 @@ export default function GuestOrdersView() {
       <div className="mt-8 text-center">
         <Link
           href="/menu"
-          className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
+          className="btn-primary px-6 py-3 transition"
         >
           Browse Menu
         </Link>

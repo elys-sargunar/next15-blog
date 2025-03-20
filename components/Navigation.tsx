@@ -1,6 +1,5 @@
 import getAuthUser from "@/lib/getAuthUser";
 import NavLink from "./NavLink";
-import { logout } from "@/actions/auth";
 import ClientNavigation from "./ClientNavigation";
 
 export default async function Navigation() {
@@ -11,12 +10,16 @@ export default async function Navigation() {
 
     return (
         <nav className="flex justify-between items-center p-4 bg-slate-800 shadow-sm">
+            {/* Left side navigation - visible on all screen sizes */}
             <div className="flex space-x-4">
                 <NavLink label="Home" href="/"></NavLink>
-                <NavLink label="Menu" href="/menu"></NavLink>
-                <NavLink label="My Orders" href="/my-orders"></NavLink>
+                {/* Menu link only visible on desktop */}
+                <span>
+                    <NavLink label="Menu" href="/menu"></NavLink>
+                </span>
             </div>
             
+            {/* Right side with client navigation (cart, auth, etc.) */}
             <ClientNavigation authUser={clientAuthUser} />
         </nav>
     );

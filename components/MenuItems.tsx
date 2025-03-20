@@ -29,7 +29,7 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
       {menuItems.map((item) => {
         // Get ID as string
         const itemId = typeof item._id === 'string' ? item._id : item._id.toString();
@@ -37,7 +37,7 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
         return (
           <div 
             key={itemId}
-            className="border rounded-lg overflow-hidden shadow-md bg-white hover:shadow-lg transition-shadow"
+            className="border rounded-lg overflow-hidden shadow-md bg-white hover:shadow-lg transition-shadow flex flex-col h-full"
           >
             <div className="h-48 bg-gray-200 relative">
               <Link href={`/menu/${itemId}`}>
@@ -68,7 +68,7 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
               </Link>
             </div>
             
-            <div className="p-4">
+            <div className="p-4 flex-1 flex flex-col">
               {/* Menu categories */}
               {item.menuCategory && item.menuCategory.length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-2">
@@ -90,27 +90,13 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
                 <p className="text-gray-600 mb-3 text-sm line-clamp-2">{item.description}</p>
               )}
               
-              {/* Price and add to cart */}
-              <div className="flex justify-between items-center mb-3">
+              {/* Price */}
+              <div className="mb-3">
                 <span className="text-lg font-bold">£{(item.price / 100).toFixed(2)}</span>
-                
-                <button
-                  onClick={() => handleAddToCart(item)}
-                  disabled={!item.available}
-                  className={`px-4 py-2 rounded-full ${
-                    !item.available 
-                      ? "bg-gray-300 cursor-not-allowed" 
-                      : addedItems[itemId]
-                        ? "bg-green-500 shadow-md text-white"
-                        : "bg-slate-800 shadow-md text-white hover:bg-slate-700"
-                  } transition-colors text-sm`}
-                >
-                  {!item.available ? "Not Available" : addedItems[itemId] ? "Added!" : "Add to Order"}
-                </button>
               </div>
               
               {/* Nutrition and allergens info */}
-              <div className="pt-3 mt-2">
+              <div className="flex-1">
                 {/* Allergens */}
                 {item.allergies && item.allergies.length > 0 && (
                   <div className="mb-2">
@@ -139,14 +125,29 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
                     </div>
                   </div>
                 )}
-                
-                {/* Stock info - optional */}
-                {item.quantity && item.quantity < 10 && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    Only {item.quantity} left in stock
-                  </p>
-                )}
               </div>
+              
+              {/* Stock info - moved above button */}
+              {item.quantity && item.quantity < 10 && (
+                <p className="text-xs text-amber-600 mt-auto mb-2">
+                  Only {item.quantity} left in stock
+                </p>
+              )}
+              
+              {/* Add to cart button - now at bottom */}
+              <button
+                onClick={() => handleAddToCart(item)}
+                disabled={!item.available}
+                className={`w-full px-4 py-2 rounded-full ${
+                  !item.available 
+                    ? "bg-gray-300 cursor-not-allowed" 
+                    : addedItems[itemId]
+                      ? "bg-green-500 shadow-md text-white"
+                      : "bg-slate-800 shadow-md text-white hover:bg-slate-700"
+                } transition-colors text-sm mt-2`}
+              >
+                {!item.available ? "Not Available" : addedItems[itemId] ? "Added!" : "Add to Order"}
+              </button>
             </div>
           </div>
         );
