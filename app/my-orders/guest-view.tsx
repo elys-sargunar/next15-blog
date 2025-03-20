@@ -74,6 +74,9 @@ export default function GuestOrdersView() {
             <p className="text-gray-600">Date: {new Date(orderData.createdAt).toLocaleString()}</p>
             <p className="text-gray-600">Status: {orderData.status || "pending"}</p>
             <p className="text-gray-600">Total: £{(orderData.totalPrice / 100).toFixed(2)}</p>
+            {orderData.totalPoints > 0 && (
+              <p className="text-amber-600 font-medium">Points Earned: {orderData.totalPoints}</p>
+            )}
           </div>
           
           <div className="p-6">

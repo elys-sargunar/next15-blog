@@ -69,7 +69,8 @@ export const foodItemSchema = z.object({
     name: z.string().min(1),                  // Food name
     description: z.string().optional(),       // Food description (optional)
     price: z.number().min(0),                 // Price of the food item
-    quantity: z.number().min(1),              // Quantity of the food item left in sto
+    quantity: z.number().min(1),              // Quantity of the food item left in stock
+    points: z.number().int().min(0).default(0), // Points earned when purchasing this item
     nutritionalInfo: nutritionalInfoSchema,   // Nutritional Information
     allergies: allergiesSchema,               // Allergens in the food item
     supplier: supplierSchema,                 // Supplier information
@@ -87,7 +88,8 @@ export const foodOrderSchema = z.object({
     customer: z.string().min(1, "Customer name is required"), // customer name
     items: z.array(foodItemSchema).nonempty("At least one food item is required"), // array of ordered food items
     totalPrice: z.number().min(0, "Total price must be a positive value"), // total price
-    currency:  z.string(), // customer currency
+    totalPoints: z.number().int().min(0).default(0), // Total points earned from this order
+    currency: z.string(), // customer currency
     specialInstructions: z.string().optional(), // Optional special instructions for the order
     orderPlacedAt: z.date(), // Date and time when the order was placed (includes time)
 });
@@ -123,5 +125,6 @@ menuCategory: [{
     available: true,
 }],
 image: "https://via.placeholder.com/150",
-isFeatured: false
+isFeatured: false,
+points: 100,
 };

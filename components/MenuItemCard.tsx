@@ -20,7 +20,14 @@ export default function MenuItemCard({menuItem} : {menuItem: FoodItem}){
             <Link href={`/menu/${menuItem._id}`} className="block text-xl font-semibold mb-4">
                 {menuItem.name}
             </Link>
-            <p className="text-sm">£{menuItem.price / 100}</p>
+            <div className="flex justify-between items-center">
+                <p className="text-sm">£{menuItem.price / 100}</p>
+                {menuItem.points > 0 && (
+                    <p className="text-xs font-medium text-amber-600">
+                        Earn {menuItem.points} points
+                    </p>
+                )}
+            </div>
         </div>
     )
 }   

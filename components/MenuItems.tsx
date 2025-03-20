@@ -69,30 +69,30 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
             </div>
             
             <div className="p-4 flex-1 flex flex-col">
-              {/* Menu categories */}
+              {/* Item name */}
+              <Link href={`/menu/${itemId}`} className="text-lg font-medium mb-1 hover:text-blue-700">
+                {item.name}
+              </Link>
+              
+              {/* Categories */}
               {item.menuCategory && item.menuCategory.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {item.menuCategory.map((cat, idx) => (
-                    <span key={idx} className="text-xs bg-slate-800 text-white px-2 py-1 rounded">
-                      {cat.name}
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {item.menuCategory.map((category, index) => (
+                    <span key={index} className="text-xs text-gray-500">
+                      {category.name}{index < (item.menuCategory?.length || 0) - 1 ? ',' : ''}
                     </span>
                   ))}
                 </div>
               )}
               
-              <h3 className="text-xl font-semibold mb-2">
-                <Link href={`/menu/${itemId}`} className="hover:text-blue-600 transition-colors">
-                  {item.name}
-                </Link>
-              </h3>
-              
-              {item.description && (
-                <p className="text-gray-600 mb-3 text-sm line-clamp-2">{item.description}</p>
-              )}
-              
-              {/* Price */}
-              <div className="mb-3">
+              {/* Price and points */}
+              <div className="mb-3 flex justify-between items-center">
                 <span className="text-lg font-bold">£{(item.price / 100).toFixed(2)}</span>
+                {item.points > 0 && (
+                  <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+                    {item.points} points
+                  </span>
+                )}
               </div>
               
               {/* Nutrition and allergens info */}
@@ -134,20 +134,22 @@ export default function MenuItems({ menuItems }: MenuItemsProps) {
                 </p>
               )}
               
-              {/* Add to cart button - now at bottom */}
-              <button
-                onClick={() => handleAddToCart(item)}
-                disabled={!item.available}
-                className={`w-full px-4 py-2 rounded-full ${
-                  !item.available 
-                    ? "bg-gray-300 cursor-not-allowed" 
-                    : addedItems[itemId]
-                      ? "bg-green-500 shadow-md text-white"
-                      : "bg-slate-800 shadow-md text-white hover:bg-slate-700"
-                } transition-colors text-sm mt-2`}
-              >
-                {!item.available ? "Not Available" : addedItems[itemId] ? "Added!" : "Add to Order"}
-              </button>
+              {/* Add to cart button */}
+              <div className="mt-auto">
+                <button
+                  onClick={() => handleAddToCart(item)}
+                  disabled={!item.available}
+                  className={`w-full px-4 py-2 rounded-full ${
+                    !item.available 
+                      ? "bg-gray-300 cursor-not-allowed" 
+                      : addedItems[itemId]
+                        ? "bg-green-500 shadow-md text-white"
+                        : "bg-slate-800 shadow-md text-white hover:bg-slate-700"
+                  } transition-colors text-sm mt-2`}
+                >
+                  {!item.available ? "Not Available" : addedItems[itemId] ? "Added!" : "Add to Order"}
+                </button>
+              </div>
             </div>
           </div>
         );

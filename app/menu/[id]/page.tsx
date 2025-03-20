@@ -91,7 +91,14 @@ export default function MenuItemDetail() {
           <div className="md:w-1/2 p-6">
             <div className="flex justify-between items-start">
               <h1 className="text-3xl font-bold mb-2">{menuItem.name}</h1>
-              <span className="text-2xl font-bold">£{(menuItem.price / 100).toFixed(2)}</span>
+              <div className="text-right">
+                <span className="text-2xl font-bold block">£{(menuItem.price / 100).toFixed(2)}</span>
+                {menuItem.points > 0 && (
+                  <span className="text-sm font-medium text-amber-600 block">
+                    Earn {menuItem.points} points
+                  </span>
+                )}
+              </div>
             </div>
             
             {menuItem.menuCategory && menuItem.menuCategory.length > 0 && (

@@ -10,6 +10,13 @@ export default function OrderPage() {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [earnedPoints, setEarnedPoints] = useState<number | null>(null);
+
+  // Calculate the total points for items in the cart
+  const totalPoints = items.reduce(
+    (sum, item) => sum + ((item.item.points || 0) * item.quantity),
+    0
+  );
 
   const handlePlaceOrder = async () => {
     if (items.length === 0) return;
@@ -24,6 +31,7 @@ export default function OrderPage() {
           id: typeof item.item._id === 'string' ? item.item._id : item.item._id.toString(),
           name: item.item.name,
           price: item.item.price,
+          points: item.item.points || 0, // Include points
           quantity: item.quantity
         })),
         totalPrice,
@@ -51,6 +59,9 @@ export default function OrderPage() {
       // Store the order ID for reference
       setOrderId(result.orderId);
       
+      // Store earned points
+      setEarnedPoints(result.totalPoints || totalPoints);
+      
       // Clear the cart
       clearCart();
       
@@ -75,6 +86,11 @@ export default function OrderPage() {
           {orderId && (
             <p className="mb-6 text-green-700">
               Order ID: <span className="font-semibold">{orderId}</span>
+            </p>
+          )}
+          {earnedPoints !== null && earnedPoints > 0 && (
+            <p className="mb-6 text-amber-600 font-semibold">
+              You earned {earnedPoints} reward points with this order!
             </p>
           )}
           <Link 
@@ -115,6 +131,9 @@ export default function OrderPage() {
                     Price
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Points
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Quantity
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -125,51 +144,38 @@ export default function OrderPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-200">
                 {items.map((cartItem) => (
                   <tr key={typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString()}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {cartItem.item.name}
-                          </div>
-                          {cartItem.item.description && (
-                            <div className="text-sm text-gray-500">
-                              {cartItem.item.description}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      <div className="text-sm font-medium text-gray-900">{cartItem.item.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       £{(cartItem.item.price / 100).toFixed(2)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-amber-600">
+                      {cartItem.item.points || 0} pts × {cartItem.quantity}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <button
-                          onClick={() => updateQuantity(
-                            typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString(), 
-                            cartItem.quantity - 1
-                          )}
-                          disabled={cartItem.quantity <= 1}
-                          className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 disabled:opacity-50"
+                          onClick={() => updateQuantity(typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString(), Math.max(1, cartItem.quantity - 1))}
+                          className="px-2 py-1 bg-gray-200 rounded-l hover:bg-gray-300"
                         >
                           -
                         </button>
-                        <span className="mx-2 text-sm">{cartItem.quantity}</span>
+                        <span className="px-4 py-1 bg-gray-100">
+                          {cartItem.quantity}
+                        </span>
                         <button
-                          onClick={() => updateQuantity(
-                            typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString(), 
-                            cartItem.quantity + 1
-                          )}
-                          className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300"
+                          onClick={() => updateQuantity(typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString(), cartItem.quantity + 1)}
+                          className="px-2 py-1 bg-gray-200 rounded-r hover:bg-gray-300"
                         >
                           +
                         </button>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       £{((cartItem.item.price * cartItem.quantity) / 100).toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -185,9 +191,13 @@ export default function OrderPage() {
               </tbody>
               <tfoot className="bg-gray-50">
                 <tr>
-                  <td colSpan={3} className="px-6 py-4 text-right font-medium">
+                  <td colSpan={2} className="px-6 py-4 text-right font-medium">
                     Total:
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-amber-600">
+                    {totalPoints} points
+                  </td>
+                  <td></td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-bold">
                     £{(totalPrice / 100).toFixed(2)}
                   </td>
