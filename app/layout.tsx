@@ -4,6 +4,7 @@ import Link from "next/link";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { CartProvider } from "@/lib/CartContext";
+import OrderStatusListenerWrapper from "@/components/OrderStatusListenerWrapper";
 
 export const metadata: Metadata = {
   title: "NextJs Blog",
@@ -20,6 +21,7 @@ export default function RootLayout({
     <html lang="en">      
       <body>
         <CartProvider>
+          <OrderStatusListenerWrapper />
           <header>
             <Navigation/>
           </header>

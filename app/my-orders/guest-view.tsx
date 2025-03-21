@@ -1,13 +1,85 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+
+// Define Order type
+type Order = {
+  _id: string;
+  createdAt: string;
+  items: Array<{
+    name: string;
+    price: number;
+    quantity: number;
+  }>;
+  totalPrice: number;
+  totalPoints: number;
+  status: string;
+};
 
 export default function GuestOrdersView() {
   const [orderId, setOrderId] = useState("");
-  const [orderData, setOrderData] = useState<any>(null);
+  const [orderData, setOrderData] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [updatedStatus, setUpdatedStatus] = useState<boolean>(false);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+
+  // Listen for order status updates via BroadcastChannel
+  useEffect(() => {
+    if (typeof window === 'undefined' || !orderData) return;
+    
+    // Create broadcast channel to listen for status updates
+    const channel = new BroadcastChannel('order-status-updates');
+    broadcastChannelRef.current = channel;
+    
+    // Listen for status updates
+    const handleStatusUpdate = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'status-update') {
+        const { orderId: updatedOrderId, newStatus } = event.data;
+        
+        // Check if this update is for the current order
+        if (orderData && orderData._id === updatedOrderId) {
+          // Update the order data with the new status
+          setOrderData((prevData: Order | null) => {
+            if (!prevData) return null;
+            return {
+              ...prevData,
+              status: newStatus
+            };
+          });
+          
+          // Set highlight effect
+          setUpdatedStatus(true);
+          
+          // Clear existing timeout if there is one
+          if (highlightTimeoutRef.current) {
+            clearTimeout(highlightTimeoutRef.current);
+          }
+          
+          // Remove highlight after 3 seconds
+          highlightTimeoutRef.current = setTimeout(() => {
+            setUpdatedStatus(false);
+            highlightTimeoutRef.current = null;
+          }, 3000);
+        }
+      }
+    };
+    
+    channel.addEventListener('message', handleStatusUpdate);
+    
+    // Cleanup on unmount or when order changes
+    return () => {
+      channel.removeEventListener('message', handleStatusUpdate);
+      channel.close();
+      broadcastChannelRef.current = null;
+      
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, [orderData]);
 
   const handleOrderLookup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,13 +142,28 @@ export default function GuestOrdersView() {
       
       {/* Order Section */}
       {orderData && (
-        <div className="bg-slate-800 p-6 rounded-lg shadow-md text-white">
+        <div className={`bg-slate-800 p-6 rounded-lg shadow-md text-white transition-all duration-300 
+          ${updatedStatus ? 'ring-2 ring-yellow-400' : ''}`}>
           <h2 className="text-xl font-semibold mb-4">Order Details</h2>
           
           <div className="mb-6">
             <p className="text-white-600"><span className="font-medium">Order ID:</span> {orderData._id}</p>
             <p className="text-white-600"><span className="font-medium">Date:</span> {new Date(orderData.createdAt).toLocaleString()}</p>
-            <p className="text-white-600"><span className="font-medium">Status:</span> {orderData.status || "pending"}</p>
+            <p className="text-white-600">
+              <span className="font-medium">Status:</span> 
+              <span className={`ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                ${orderData.status === "completed" ? "bg-green-100 text-green-800" :
+                orderData.status === "accepted" ? "bg-blue-100 text-blue-800" :
+                orderData.status === "pending" ? "bg-yellow-100 text-yellow-800" :
+                orderData.status === "cancelled" ? "bg-red-100 text-red-800" :
+                "bg-gray-100 text-gray-800"}`}
+              >
+                {updatedStatus && (
+                  <span className="mr-1">📢</span>
+                )}
+                {orderData.status || "pending"}
+              </span>
+            </p>
             <p className="text-white-600"><span className="font-medium">Total:</span> £{(orderData.totalPrice / 100).toFixed(2)}</p>
             {orderData.totalPoints > 0 && (
               <p className="text-amber-600"><span className="font-medium">Points Earned:</span> {orderData.totalPoints}</p>

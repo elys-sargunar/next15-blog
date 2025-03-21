@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import getAuthUser from '@/lib/getAuthUser';
 import { ObjectId } from 'mongodb';
+import { sendEventToUser } from '../../../orders/status-events/route';
 
 // Explicitly set Node.js runtime
 export const runtime = 'nodejs';
@@ -37,15 +38,25 @@ export async function PATCH(
       );
     }
     
+    // First, get the order details to know which user to notify
+    const ordersCollection = await getCollection("orders");
+    const order = await ordersCollection?.findOne({ _id: new ObjectId(id) });
+    
+    if (!order) {
+      return NextResponse.json(
+        { error: "Order not found" },
+        { status: 404 }
+      );
+    }
+    
+    // Store the old status to check if it's actually changing
+    const oldStatus = order.status || "pending";
+    
     // If we need to reduce inventory (changing to "accepted" status)
     if (reduceInventory) {
       try {
-        // First, get the order details to know which items to reduce
-        const ordersCollection = await getCollection("orders");
-        const order = await ordersCollection?.findOne({ _id: new ObjectId(id) });
-        
-        if (!order || !order.items || !Array.isArray(order.items)) {
-          console.error("Could not find order or order has no items");
+        if (!order.items || !Array.isArray(order.items)) {
+          console.error("Could not find order items");
         } else {
           // Get the menu items collection
           const menuItemCollection = await getCollection("menuItems");
@@ -74,7 +85,6 @@ export async function PATCH(
     }
     
     // Update the order status
-    const ordersCollection = await getCollection("orders");
     const result = await ordersCollection?.updateOne(
       { _id: new ObjectId(id) },
       { $set: { status } }
@@ -85,6 +95,26 @@ export async function PATCH(
         { error: "Order not found" },
         { status: 404 }
       );
+    }
+    
+    // Notify the user of the status change if this order belongs to a user
+    // and if the status has actually changed
+    if (order.userId && status !== oldStatus) {
+      const userId = order.userId.toString();
+      try {
+        // Send status update event to the user
+        await sendEventToUser(userId, 'order-status-update', {
+          orderId: id,
+          oldStatus,
+          newStatus: status,
+          updatedAt: new Date().toISOString()
+        });
+        
+        console.log(`Notified user ${userId} about order ${id} status change to ${status}`);
+      } catch (notifyError) {
+        console.error(`Error notifying user ${userId}:`, notifyError);
+        // Continue even if notification fails
+      }
     }
     
     return NextResponse.json({ 
