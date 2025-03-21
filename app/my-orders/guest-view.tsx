@@ -34,11 +34,13 @@ export default function GuestOrdersView() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-8">Order Lookup</h1>
+    <div className="container mx-auto px-4 py-8 max-w-4xl space-y-8">
+      <h1 className="text-3xl font-bold mb-8">My Orders</h1>
       
-      <div className="p-6 mb-8 bg-slate-100 rounded">
-        <p className="mb-4">Enter your order ID to track your order:</p>
+      {/* Guest Information Section */}
+      <div className="bg-slate-800 p-6 rounded-lg shadow-md text-white">
+        <h2 className="text-xl font-semibold mb-4">Order Lookup</h2>
+        <p className="mb-4">Not logged in? Enter your order ID to track your order:</p>
         
         <form onSubmit={handleOrderLookup} className="flex flex-col md:flex-row gap-4">
           <input
@@ -51,8 +53,8 @@ export default function GuestOrdersView() {
           <button
             type="submit"
             disabled={isLoading}
-            className={`btn-primary px-6 py-2 rounded-lg text-white transition ${
-              isLoading ? "bg-green-400" : "bg-slate-800 hover:bg-green-700"
+            className={` btn-primary px-6 py-2 rounded-lg text-white transition ${
+              isLoading ? "bg-green-400" : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
             <span>{isLoading ? "Looking up..." : "Search"}</span>
@@ -66,40 +68,49 @@ export default function GuestOrdersView() {
         )}
       </div>
       
+      {/* Order Section */}
       {orderData && (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-6 border-b">
-            <h2 className="text-xl font-semibold mb-2">Order Details</h2>
-            <p className="text-gray-600">Order ID: {orderData._id}</p>
-            <p className="text-gray-600">Date: {new Date(orderData.createdAt).toLocaleString()}</p>
-            <p className="text-gray-600">Status: {orderData.status || "pending"}</p>
-            <p className="text-gray-600">Total: £{(orderData.totalPrice / 100).toFixed(2)}</p>
+        <div className="bg-slate-800 p-6 rounded-lg shadow-md text-white">
+          <h2 className="text-xl font-semibold mb-4">Order Details</h2>
+          
+          <div className="mb-6">
+            <p className="text-white-600"><span className="font-medium">Order ID:</span> {orderData._id}</p>
+            <p className="text-white-600"><span className="font-medium">Date:</span> {new Date(orderData.createdAt).toLocaleString()}</p>
+            <p className="text-white-600"><span className="font-medium">Status:</span> {orderData.status || "pending"}</p>
+            <p className="text-white-600"><span className="font-medium">Total:</span> £{(orderData.totalPrice / 100).toFixed(2)}</p>
             {orderData.totalPoints > 0 && (
-              <p className="text-amber-600 font-medium">Points Earned: {orderData.totalPoints}</p>
+              <p className="text-amber-600"><span className="font-medium">Points Earned:</span> {orderData.totalPoints}</p>
             )}
           </div>
           
-          <div className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Order Items</h3>
-            <ul className="divide-y">
-              {orderData.items.map((item: any, idx: number) => (
-                <li key={idx} className="py-3 flex justify-between">
-                  <div>
-                    <span className="font-medium">{item.name}</span>
-                    <span className="text-gray-500 ml-2">x{item.quantity}</span>
-                  </div>
-                  <span>£{((item.price * item.quantity) / 100).toFixed(2)}</span>
-                </li>
-              ))}
-            </ul>
+          <h3 className="text-lg font-semibold mb-4">Order Items</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {orderData.items.map((item: any, idx: number) => (
+                  <tr key={idx}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">x{item.quantity}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">£{((item.price * item.quantity) / 100).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
       
-      <div className="mt-8 text-center">
+      <div className="text-center">
         <Link
           href="/menu"
-          className="btn-primary px-6 py-3 transition"
+          className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
         >
           Browse Menu
         </Link>

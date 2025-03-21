@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = params.id;
+    const id = await params.id;
     
     // Check if ID is valid
     if (!id || !ObjectId.isValid(id)) {

@@ -47,7 +47,7 @@ export default function ClientNavigation({ authUser }: ClientNavigationProps) {
         {authUser ? (
           <>
             {/* My Orders link - visible on all device sizes */}
-            <NavLink label="My Orders" href="/my-orders"></NavLink>
+            <NavLink label="Dashboard" href="/dashboard"></NavLink>
             <NavLink label="New Post" href="/posts/create"></NavLink>
             {/* <NavLink label="Dashboard" href="/dashboard"></NavLink> */}            
             <form action={logout}>
