@@ -236,7 +236,7 @@ export default function OrderPage() {
                   isSubmitting ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
                 }`}
               >
-                {isSubmitting ? "Processing..." : "Place Order"}
+                {isSubmitting ? "Processing order..." : "Place Order"}
               </button>
             </div>
           </div>

@@ -173,12 +173,20 @@ export default function AdminDashboard() {
   // Function to update order status
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
+      // If the new status is "accepted", we need to get the current order first
+      const currentOrder = allOrders.find(order => order._id === orderId);
+      const oldStatus = currentOrder?.status || '';
+      
       const response = await fetch(`/api/admin/orders/${orderId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ 
+          status: newStatus,
+          // If we're changing to "accepted", pass a flag to reduce inventory
+          reduceInventory: newStatus === "accepted" && oldStatus !== "accepted"
+        }),
       });
       
       if (!response.ok) throw new Error('Failed to update order status');
@@ -304,7 +312,7 @@ export default function AdminDashboard() {
                       <td className="py-2 px-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                           order.status === "completed" ? "bg-green-100 text-green-800" :
-                          order.status === "processing" ? "bg-blue-100 text-blue-800" :
+                          order.status === "accepted" ? "bg-blue-100 text-blue-800" :
                           order.status === "pending" ? "bg-yellow-100 text-yellow-800" :
                           order.status === "cancelled" ? "bg-red-100 text-red-800" :
                           "bg-gray-100 text-gray-800"
@@ -319,7 +327,7 @@ export default function AdminDashboard() {
                           onChange={(e) => updateOrderStatus(order._id, e.target.value)}
                         >
                           <option value="pending">Pending</option>
-                          <option value="processing">Processing</option>
+                          <option value="accepted">Accepted</option>
                           <option value="completed">Completed</option>
                           <option value="cancelled">Cancelled</option>
                         </select>

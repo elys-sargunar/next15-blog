@@ -85,7 +85,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error placing order:", error);
     return NextResponse.json(
-      { error: "An error occurred while processing your order" },
+      { error: "An error occurred while placing your order" },
       { status: 500 }
     );
   }

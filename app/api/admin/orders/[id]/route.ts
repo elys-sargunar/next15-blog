@@ -12,7 +12,7 @@ export async function PATCH(
 ) {
   try {
     const id = params.id;
-    const { status } = await request.json();
+    const { status, reduceInventory } = await request.json();
     
     // Check if user is authenticated and is an admin
     const authUser = await getAuthUser();
@@ -35,6 +35,42 @@ export async function PATCH(
         { error: "Access denied. Admin privileges required." },
         { status: 403 } 
       );
+    }
+    
+    // If we need to reduce inventory (changing to "accepted" status)
+    if (reduceInventory) {
+      try {
+        // First, get the order details to know which items to reduce
+        const ordersCollection = await getCollection("orders");
+        const order = await ordersCollection?.findOne({ _id: new ObjectId(id) });
+        
+        if (!order || !order.items || !Array.isArray(order.items)) {
+          console.error("Could not find order or order has no items");
+        } else {
+          // Get the menu items collection
+          const menuItemCollection = await getCollection("menuItems");
+          
+          // For each item in the order, reduce its quantity in inventory
+          for (const item of order.items) {
+            if (!item.id) continue;
+            
+            try {
+              // Update the menu item quantity
+              await menuItemCollection?.updateOne(
+                { _id: new ObjectId(item.id) },
+                { $inc: { quantity: -item.quantity } }
+              );
+              
+              console.log(`Reduced quantity for item ${item.id} by ${item.quantity}`);
+            } catch (itemError) {
+              console.error(`Error reducing quantity for item ${item.id}:`, itemError);
+            }
+          }
+        }
+      } catch (inventoryError) {
+        console.error("Error reducing inventory:", inventoryError);
+        // Continue with status update even if inventory reduction fails
+      }
     }
     
     // Update the order status
