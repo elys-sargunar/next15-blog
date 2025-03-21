@@ -33,7 +33,7 @@ export async function PATCH(
     if (!userData || !userData.isAdmin) {
       return NextResponse.json(
         { error: "Access denied. Admin privileges required." },
-        { status: 403 }
+        { status: 403 } 
       );
     }
     

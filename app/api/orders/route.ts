@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { ObjectId } from 'mongodb';
 import getAuthUser from '@/lib/getAuthUser';
+import { sendEventToAdmins } from './events/route';
 
 // Explicitly set Node.js runtime
 export const runtime = 'nodejs';
@@ -55,9 +56,23 @@ export async function POST(request: Request) {
     }
     
     if (result.acknowledged) {
+      // Create serialized order for sending via SSE
+      const newOrderId = result.insertedId.toString();
+      const serializedOrder = {
+        ...orderDoc,
+        _id: newOrderId,
+        userId: orderDoc.userId ? orderDoc.userId.toString() : null,
+        createdAt: orderDoc.createdAt.toISOString()
+      };
+      
+      // Notify all connected admin clients about the new order
+      await sendEventToAdmins('new-order', {
+        order: serializedOrder
+      });
+      
       return NextResponse.json({
         success: true,
-        orderId: result.insertedId.toString(),
+        orderId: newOrderId,
         totalPoints: totalPoints,
         message: "Order placed successfully"
       });
