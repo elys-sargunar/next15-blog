@@ -86,7 +86,7 @@ export default function Dashboard() {
                 {userOrders.map((order) => (
                   <tr 
                     key={order._id.toString()}
-                    className={selectedOrderId === order._id.toString() ? "bg-slate-700" : undefined}
+                    className={selectedOrderId === order._id.toString() ? "bg-slate-700 hover:bg-slate-600" : undefined}
                   >
                     <td 
                       className={`font-medium cursor-pointer hover:text-blue-400 ${
@@ -99,12 +99,12 @@ export default function Dashboard() {
                     >
                       {order._id.toString().substring(0, 10)}...
                     </td>
-                    <td className="text-slate-300">{new Date(order.createdAt).toLocaleDateString("en-GB")} - {new Date(order.createdAt).toLocaleTimeString("en-GB")}</td>
-                    <td className="text-slate-300">
+                    <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-slate-800"}>{new Date(order.createdAt).toLocaleDateString("en-GB")} - {new Date(order.createdAt).toLocaleTimeString("en-GB")}</td>
+                    <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-slate-800"}>
                       {order.items?.reduce((total: number, item: any) => total + (item.quantity || 1), 0) || 0} items
                     </td>
-                    <td className="text-slate-300">£{order.totalPrice ? (order.totalPrice / 100).toFixed(2) : "N/A"}</td>
-                    <td className="text-amber-600 font-medium">{order.totalPoints || 0}</td>
+                    <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-slate-800"}>£{order.totalPrice ? (order.totalPrice / 100).toFixed(2) : "N/A"}</td>
+                    <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-amber-600 font-medium"}>{order.totalPoints || 0}</td>
                     <td>
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                         order.status === "completed" ? "bg-green-100 text-green-800" :
@@ -139,16 +139,16 @@ export default function Dashboard() {
               <table className="w-full bg-slate-700 mb-0 rounded">
                 <thead className="bg-slate-600">
                   <tr>
-                    <th>Item</th>
-                    <th>Price</th>
-                    <th>Quantity</th>
-                    <th>Subtotal</th>
-                    <th>Points</th>
+                    <th className="text-white">Item</th>
+                    <th className="text-white"  >Price</th>
+                    <th className="text-white">Quantity</th>
+                    <th className="text-white">Subtotal</th>
+                    <th className="text-white">Points</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selectedOrder.items.map((item: any, index: number) => (
-                    <tr key={index} className="border-b border-slate-600">
+                    <tr key={index} className="border-b border-slate-600 hover:bg-slate-600">
                       <td className="font-medium">{item.name}</td>
                       <td>£{(item.price / 100).toFixed(2)}</td>
                       <td>{item.quantity}</td>
