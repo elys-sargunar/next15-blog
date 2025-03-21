@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 
+// Explicitly set Node.js runtime
+export const runtime = 'nodejs';
+
 export async function GET() {
   try {
     // Access the menu categories collection

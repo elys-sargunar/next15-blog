@@ -4,6 +4,9 @@ import { ObjectId } from 'mongodb';
 import getAuthUser from '@/lib/getAuthUser';
 import { getOrdersByUserId } from '@/actions/orders';
 
+// Explicitly set Node.js runtime
+export const runtime = 'nodejs';
+
 export async function GET() {
   try {
     // Check if user is authenticated
@@ -41,14 +44,15 @@ export async function GET() {
       userData: {
         email: userData.email,
         points: userData.points || 0,
+        isAdmin: userData.isAdmin,
         // Include other user data fields as needed
       },
-      orders: orders.map(order => ({
+      orders: orders ? orders.map(order => ({
         ...order,
         _id: order._id.toString(),
         // Handle potential ObjectId types in nested objects
         userId: order.userId ? order.userId.toString() : null
-      }))
+      })) : []
     });
     
   } catch (error) {

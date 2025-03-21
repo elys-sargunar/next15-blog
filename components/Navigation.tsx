@@ -6,7 +6,8 @@ export default async function Navigation() {
     const authUser = await getAuthUser();
     
     // Adapt authUser to the expected format for ClientNavigation
-    const clientAuthUser = authUser ? { userId: String(authUser.userId) } : null;
+    const clientAuthUser = authUser ? { userId: String(authUser.userId), isAdmin: authUser.isAdmin as boolean } : null;
+    const userData = authUser ? { isAdmin: authUser.isAdmin as boolean } : null;
 
     return (
         <nav className="flex justify-between items-center p-4 bg-slate-800 shadow-sm">
@@ -20,7 +21,7 @@ export default async function Navigation() {
             </div>
             
             {/* Right side with client navigation (cart, auth, etc.) */}
-            <ClientNavigation authUser={clientAuthUser} />
+            <ClientNavigation authUser={clientAuthUser} userData={userData} />
         </nav>
     );
 }

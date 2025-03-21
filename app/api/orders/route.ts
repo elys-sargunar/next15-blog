@@ -3,6 +3,9 @@ import { getCollection } from '@/lib/db';
 import { ObjectId } from 'mongodb';
 import getAuthUser from '@/lib/getAuthUser';
 
+// Explicitly set Node.js runtime
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
   try {
     // Get the request body

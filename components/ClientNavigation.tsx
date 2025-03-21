@@ -6,10 +6,11 @@ import CartIcon from "./CartIcon";
 import { logout } from "@/actions/auth";
 
 type ClientNavigationProps = {
-  authUser: { userId: string } | null;
-};
+  authUser: { userId: string, isAdmin: boolean } | null;
+  userData: { isAdmin: boolean } | null;
+}
 
-export default function ClientNavigation({ authUser }: ClientNavigationProps) {
+export default function ClientNavigation({ authUser, userData }: ClientNavigationProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => {
@@ -48,8 +49,10 @@ export default function ClientNavigation({ authUser }: ClientNavigationProps) {
           <>
             {/* My Orders link - visible on all device sizes */}
             <NavLink label="Dashboard" href="/dashboard"></NavLink>
-            <NavLink label="New Post" href="/posts/create"></NavLink>
-            {/* <NavLink label="Dashboard" href="/dashboard"></NavLink> */}            
+            {/* Add this conditional rendering for admin link */}
+            {userData?.isAdmin && (
+              <NavLink label="Admin" href="/admin"></NavLink>
+            )}
             <form action={logout}>
               <button className="nav-link">Logout</button>
             </form>

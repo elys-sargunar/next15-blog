@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 
+// Explicitly set Node.js runtime
+export const runtime = 'nodejs';
+
 export async function GET(request: Request) {
   try {
     // Parse query parameters to support category filtering
