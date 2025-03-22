@@ -9,10 +9,10 @@ export const runtime = 'nodejs';
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const id = params.id;
+    const id = context.params.id;
     const { status, reduceInventory } = await request.json();
     
     // Check if user is authenticated and is an admin
