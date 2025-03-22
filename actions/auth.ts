@@ -6,6 +6,9 @@ import { hashPassword} from "@/lib/db"
 import { redirect } from "next/navigation";
 import { createSession } from "@/lib/sessions";
 import { cookies } from "next/headers";
+import { ObjectId } from "mongodb";
+import { getOrdersByUserId } from "@/actions/orders";
+import getAuthUser from "@/lib/getAuthUser";
 
 
 export async function register(state:any, formData:any){
@@ -111,4 +114,65 @@ export async function logout(){
     const cookieStore = await cookies();
     cookieStore.delete("userSession");
     redirect("/")
+}
+
+/**
+ * Gets the authenticated user's profile data including orders
+ */
+export async function getUserProfile() {
+  try {
+    // Check if user is authenticated
+    const authUser = await getAuthUser();
+    
+    if (!authUser) {
+      return { 
+        success: false, 
+        error: "Unauthorized" 
+      };
+    }
+    
+    // Fetch user data
+    const usersCollection = await getCollection("users");
+    
+    const userData = await usersCollection?.findOne({ 
+      _id: ObjectId.createFromHexString(authUser.userId as string) 
+    });
+    
+    if (!userData) {
+      return {
+        success: false,
+        error: "User not found"
+      };
+    }
+    
+    // Fetch orders for this user
+    const orders = await getOrdersByUserId(authUser.userId as string);
+    
+    // Return combined profile data
+    return {
+      success: true,
+      user: {
+        userId: authUser.userId,
+      },
+      userData: {
+        email: userData.email,
+        points: userData.points || 0,
+        isAdmin: userData.isAdmin,
+        // Include other user data fields as needed
+      },
+      orders: orders ? orders.map((order: any) => ({
+        ...order,
+        _id: order._id.toString(),
+        // Handle potential ObjectId types in nested objects
+        userId: order.userId ? order.userId.toString() : null
+      })) : []
+    };
+    
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    return {
+      success: false,
+      error: "An error occurred while fetching the user profile"
+    };
+  }
 }

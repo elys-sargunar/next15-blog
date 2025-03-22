@@ -1,59 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import getAuthUser from '@/lib/getAuthUser';
+import { addUserClient, removeUserClient } from '@/actions/events';
 
 // Explicitly set Node.js runtime
 export const runtime = 'nodejs';
-
-// Define the type for status update event data
-interface StatusUpdateEventData {
-  orderId: string;
-  oldStatus: string;
-  newStatus: string;
-  updatedAt: string;
-  [key: string]: unknown; // Allow additional properties
-}
-
-// Keep track of connected clients
-const userClients = new Map<string, Set<{
-  id: string;
-  controller: ReadableStreamDefaultController;
-}>>();
-
-// Function to send an event to a specific user's connected clients
-export async function sendEventToUser(userId: string, event: string, data: StatusUpdateEventData): Promise<void> {
-  const encodedData = JSON.stringify(data);
-  const userConnections = userClients.get(userId);
-  
-  if (!userConnections) {
-    console.log(`No active connections found for user ${userId}`);
-    return;
-  }
-  
-  let failedClients = 0;
-  for (const client of userConnections) {
-    try {
-      client.controller.enqueue(
-        `event: ${event}\ndata: ${encodedData}\n\n`
-      );
-      console.log(`Event '${event}' sent to client ${client.id} for user ${userId}`);
-    } catch (error) {
-      console.error(`Error sending event to client ${client.id} for user ${userId}:`, error);
-      // Remove the client if we can't send to it
-      userConnections.delete(client);
-      failedClients++;
-    }
-  }
-  
-  if (failedClients > 0) {
-    console.log(`Removed ${failedClients} failed clients for user ${userId}`);
-  }
-  
-  // Clean up empty user connections
-  if (userConnections.size === 0) {
-    userClients.delete(userId);
-    console.log(`Removed empty connection set for user ${userId}`);
-  }
-}
 
 // SSE endpoint for real-time order updates for a specific user
 export async function GET(request: NextRequest) {
@@ -79,13 +29,9 @@ export async function GET(request: NextRequest) {
     const stream = new ReadableStream({
       start(controller) {
         console.log(`Starting SSE stream for user ${userId}, client ${clientId}`);
-        // Initialize user's connections set if it doesn't exist
-        if (!userClients.has(userId)) {
-          userClients.set(userId, new Set());
-        }
         
         // Add this client to the user's set of connected clients
-        userClients.get(userId)!.add({ id: clientId, controller });
+        addUserClient(userId, clientId, controller);
         
         // Send initial connection event
         controller.enqueue(`event: connected\ndata: {"clientId":"${clientId}"}\n\n`);
@@ -105,17 +51,7 @@ export async function GET(request: NextRequest) {
       cancel(reason) {
         // Remove this client when they disconnect
         console.log(`SSE connection cancelled for client ${clientId}, user ${userId}:`, reason);
-        const userConnections = userClients.get(userId);
-        if (userConnections) {
-          userConnections.delete(Array.from(userConnections).find(client => client.id === clientId)!);
-          console.log(`Removed client ${clientId} for user ${userId}`);
-          
-          // Clean up if there are no more connections for this user
-          if (userConnections.size === 0) {
-            userClients.delete(userId);
-            console.log(`Removed empty connection set for user ${userId}`);
-          }
-        }
+        removeUserClient(userId, clientId);
       }
     });
     

@@ -7,6 +7,202 @@ import { getCollection } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 
+// Define type for cart item
+interface CartItem {
+  item: {
+    _id: string | { toString(): string };
+    name: string;
+    price: number;
+    points: number;
+  };
+  quantity: number;
+}
+
+// Define type for order item
+interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  points: number;
+  quantity: number;
+}
+
+// Define type for customer info
+interface CustomerInfo {
+  name: string;
+  email: string;
+  address: string;
+}
+
+// Define type for place order request
+interface PlaceOrderRequest {
+  items: OrderItem[];
+  totalPrice: number;
+  customerInfo: CustomerInfo;
+}
+
+// Define type for order response
+interface OrderResponse {
+  success: boolean;
+  orderId?: string;
+  totalPoints?: number;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Places a new order
+ */
+export async function placeOrder(orderData: PlaceOrderRequest): Promise<OrderResponse> {
+  try {
+    // Get the authenticated user (optional)
+    const authUser = await getAuthUser();
+    
+    // Access the orders collection
+    const ordersCollection = await getCollection("orders");
+    if (!ordersCollection) {
+      return {
+        success: false,
+        error: "Failed to connect to orders collection"
+      };
+    }
+    
+    // Calculate total points from order items
+    const totalPoints = orderData.items.reduce((sum: number, item: OrderItem) => {
+      const itemPoints = item.points || 0;
+      return sum + (itemPoints * item.quantity);
+    }, 0);
+    
+    // Prepare the order document
+    const orderDoc = {
+      items: orderData.items,
+      totalPrice: orderData.totalPrice,
+      totalPoints: totalPoints,
+      userId: authUser ? ObjectId.createFromHexString(authUser.userId as string) : null,
+      status: "pending",
+      createdAt: new Date(),
+      customerInfo: orderData.customerInfo || {},
+    };
+    
+    // Insert the order into the collection
+    const result = await ordersCollection.insertOne(orderDoc);
+    
+    // If user is authenticated, update their points
+    if (authUser) {
+      const usersCollection = await getCollection("users");
+      if (usersCollection) {
+        await usersCollection.updateOne(
+          { _id: ObjectId.createFromHexString(authUser.userId as string) },
+          { $inc: { points: totalPoints } }
+        );
+      }
+    }
+    
+    if (result.acknowledged) {
+      // Get the new order ID
+      const newOrderId = result.insertedId.toString();
+      
+      // Create serialized order for sending via SSE
+      const serializedOrder = {
+        ...orderDoc,
+        _id: newOrderId,
+        userId: orderDoc.userId ? orderDoc.userId.toString() : null,
+        createdAt: orderDoc.createdAt.toISOString()
+      };
+      
+      // Use dynamic import to avoid circular dependency
+      const { sendEventToAdmins } = await import('@/actions/events');
+      
+      // Notify all connected admin clients about the new order
+      await sendEventToAdmins('new-order', {
+        order: serializedOrder
+      });
+      
+      // Revalidate relevant paths
+      revalidatePath('/my-orders');
+      revalidatePath('/admin');
+      
+      return {
+        success: true,
+        orderId: newOrderId,
+        totalPoints: totalPoints,
+        message: "Order placed successfully"
+      };
+    } else {
+      return {
+        success: false,
+        error: "Failed to save order"
+      };
+    }
+  } catch (error) {
+    console.error("Error placing order:", error);
+    return {
+      success: false,
+      error: "An error occurred while placing your order"
+    };
+  }
+}
+
+/**
+ * Gets a specific order by ID
+ */
+export async function fetchOrderById(id: string) {
+  try {
+    // Check if ID is valid
+    if (!id || !ObjectId.isValid(id)) {
+      return {
+        success: false,
+        error: "Invalid order ID"
+      };
+    }
+    
+    // Access the orders collection
+    const ordersCollection = await getCollection("orders");
+    if (!ordersCollection) {
+      return {
+        success: false,
+        error: "Failed to connect to orders collection"
+      };
+    }
+    
+    // Find the order by ID
+    const order = await ordersCollection.findOne({ 
+      _id: new ObjectId(id) 
+    });
+    
+    if (!order) {
+      return {
+        success: false,
+        error: "Order not found"
+      };
+    }
+    
+    // Return the order data with proper serialization to match the client's Order type
+    return {
+      success: true,
+      order: {
+        // Include all original fields first
+        ...JSON.parse(JSON.stringify(order)),
+        // Then override with properly formatted fields
+        _id: order._id.toString(),
+        userId: order.userId ? order.userId.toString() : null,
+        createdAt: order.createdAt ? order.createdAt.toISOString() : new Date().toISOString(),
+        items: order.items || [],
+        totalPrice: order.totalPrice || 0,
+        totalPoints: order.totalPoints || 0,
+        status: order.status || 'pending',
+      }
+    };
+    
+  } catch (error) {
+    console.error("Error fetching order:", error);
+    return {
+      success: false,
+      error: "An error occurred while fetching the order"
+    };
+  }
+}
+
 export async function createOrder(state: { errors?: any, name: string, tableNumber?: number, items?: any }, formData: FormData){
 
     // Check if the user is signed in

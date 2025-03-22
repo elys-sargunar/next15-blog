@@ -2,38 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import getAuthUser from '@/lib/getAuthUser';
 import { getCollection } from '@/lib/db';
 import { ObjectId } from 'mongodb';
+import { addAdminClient, removeAdminClient } from '@/actions/events';
 
 // Explicitly set Node.js runtime
 export const runtime = 'nodejs';
-
-// Define the type for order event data
-interface OrderEventData {
-  order?: Record<string, unknown>;
-  [key: string]: unknown; // Allow additional properties
-}
-
-// Keep track of connected clients
-const clients = new Set<{
-  id: string;
-  controller: ReadableStreamDefaultController;
-}>();
-
-// Function to send an event to all connected admin clients
-export async function sendEventToAdmins(event: string, data: OrderEventData): Promise<void> {
-  const encodedData = JSON.stringify(data);
-  
-  for (const client of clients) {
-    try {
-      client.controller.enqueue(
-        `event: ${event}\ndata: ${encodedData}\n\n`
-      );
-    } catch (error) {
-      console.error(`Error sending event to client ${client.id}:`, error);
-      // Remove the client if we can't send to it
-      clients.delete(client);
-    }
-  }
-}
 
 // SSE endpoint for real-time order updates
 export async function GET(request: NextRequest) {
@@ -68,7 +40,7 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     start(controller) {
       // Add this client to the set of connected clients
-      clients.add({ id: clientId, controller });
+      addAdminClient(clientId, controller);
       
       // Send initial connection event
       controller.enqueue(`event: connected\ndata: {"clientId":"${clientId}"}\n\n`);
@@ -86,7 +58,7 @@ export async function GET(request: NextRequest) {
     },
     cancel() {
       // Remove this client when they disconnect
-      clients.delete(Array.from(clients).find(client => client.id === clientId)!);
+      removeAdminClient(clientId);
     }
   });
   

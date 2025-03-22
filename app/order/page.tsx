@@ -3,6 +3,7 @@
 import { useCart } from "@/lib/CartContext";
 import Link from "next/link";
 import { useState } from "react";
+import { placeOrder } from "@/actions/orders";
 
 export default function OrderPage() {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
@@ -19,45 +20,38 @@ export default function OrderPage() {
   );
 
   const handlePlaceOrder = async () => {
-    if (items.length === 0) return;
-
+    if (isSubmitting) return;
+    
     setIsSubmitting(true);
     setOrderError(null);
-
+    
     try {
-      // Prepare order data
+      // Prepare the order data
       const orderData = {
-        items: items.map(item => ({
-          id: typeof item.item._id === 'string' ? item.item._id : item.item._id.toString(),
-          name: item.item.name,
-          price: item.item.price,
-          points: item.item.points || 0, // Include points
-          quantity: item.quantity
+        items: items.map(cartItem => ({
+          id: typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString(),
+          name: cartItem.item.name,
+          price: cartItem.item.price,
+          points: cartItem.item.points || 0,
+          quantity: cartItem.quantity
         })),
-        totalPrice,
+        totalPrice: totalPrice,
         customerInfo: {
-          // In a real app, you might collect this from a form
           name: "Guest User",
           email: "",
           address: ""
         }
       };
 
-      // Submit order to API
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
-      });
+      // Call the server action instead of using fetch
+      const result = await placeOrder(orderData);
 
-      const result = await response.json();
-
-      if (!response.ok) {
+      if (!result.success) {
         throw new Error(result.error || 'Failed to place order');
       }
 
       // Store the order ID for reference
-      setOrderId(result.orderId);
+      setOrderId(result.orderId!);
       
       // Store earned points
       setEarnedPoints(result.totalPoints || totalPoints);

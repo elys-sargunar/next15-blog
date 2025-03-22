@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ObjectId } from "mongodb";
+import { getUserProfile } from "@/actions/auth";
 
 // Define proper types
 type OrderItem = {
@@ -22,8 +23,7 @@ type Order = {
 };
 
 type User = {
-  userId?: string;
-  email: string;
+  userId: string;
 };
 
 type UserData = {
@@ -43,14 +43,19 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchData() {
       try {
-        // Get current user and their orders
-        const response = await fetch('/api/user/profile');
-        if (!response.ok) throw new Error('Failed to fetch profile');
-        const data = await response.json();
+        // Get current user and their orders using server action
+        const profileResult = await getUserProfile();
+        if (!profileResult.success) throw new Error(profileResult.error || 'Failed to fetch profile');
         
-        setUser(data.user);
-        setUserData(data.userData);
-        setUserOrders(data.orders || []);
+        if (profileResult.user && profileResult.userData) {
+          setUser(profileResult.user);
+          setUserData({
+            _id: profileResult.user.userId,
+            email: profileResult.userData.email,
+            points: profileResult.userData.points || 0
+          });
+          setUserOrders(profileResult.orders as Order[] || []);
+        }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {

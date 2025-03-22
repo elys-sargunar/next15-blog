@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { getUserProfile } from '@/actions/auth';
 
 // Dynamically import the OrderStatusListener component to avoid SSR issues
 const OrderStatusListener = dynamic(() => import('./OrderStatusListener'), {
@@ -23,16 +24,13 @@ export default function OrderStatusListenerWrapper() {
     async function checkAuth() {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/user/profile', {
-          // Add cache control to prevent stale data
-          headers: { 'Cache-Control': 'no-cache' },
-          // Ensure credentials are sent
-          credentials: 'include'
-        });
+        
+        // Use the server action instead of fetch API
+        const profileResult = await getUserProfile();
         
         // Only update state if component is still mounted
         if (isMounted) {
-          setIsAuthenticated(response.ok);
+          setIsAuthenticated(profileResult.success);
           setIsLoading(false);
         }
       } catch (error) {

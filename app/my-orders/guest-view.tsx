@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { fetchOrderById } from "@/actions/orders";
 
 // Define Order type
 type Order = {
@@ -92,14 +93,20 @@ export default function GuestOrdersView() {
     setError(null);
     
     try {
-      const response = await fetch(`/api/orders/${orderId}`);
+      // Use server action instead of fetch
+      const result = await fetchOrderById(orderId);
       
-      if (!response.ok) {
-        throw new Error("Order not found");
+      if (!result.success) {
+        throw new Error(result.error || "Order not found");
       }
       
-      const data = await response.json();
-      setOrderData(data.order);
+      // Ensure we have order data and convert it to the expected type
+      if (result.order) {
+        // Cast the server response to our expected Order type
+        setOrderData(result.order as unknown as Order);
+      } else {
+        throw new Error("Invalid order data received");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to find order");
       setOrderData(null);

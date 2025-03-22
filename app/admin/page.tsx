@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react";
+import { updateOrderStatus as updateOrderStatusAction, getAdminOrders } from '@/actions/admin';
+import { getUserProfile } from '@/actions/auth';
 
 // Type definition for an order
 type Order = {
@@ -26,14 +28,17 @@ type Order = {
 
 // Define types for user and userData
 type User = {
-  id: string;
-  email: string;
-  role: string;
+  userId: string;
+  // These fields are no longer needed as they're part of userData now
+  // id: string;
+  // email: string;
+  // role: string;
 };
 
 type UserData = {
   email: string;
   isAdmin: boolean;
+  points?: number;
 };
 
 export default function AdminDashboard() {
@@ -47,23 +52,38 @@ export default function AdminDashboard() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // State for toast notifications
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | null }>({ 
+    message: '', 
+    type: null 
+  });
+
+  // State for tracking recently updated orders
+  const [updatedOrderId, setUpdatedOrderId] = useState<string | null>(null);
+  
+  // Refs for timers that need cleanup
+  const timerRefs = useRef<{
+    highlightTimer?: NodeJS.Timeout, 
+    toastTimer?: NodeJS.Timeout
+  }>({});
+
   // Setup SSE connection for real-time order updates
   useEffect(() => {
     async function fetchInitialData() {
       try {
-        // Get current admin user data
-        const userResponse = await fetch('/api/user/profile');
-        if (!userResponse.ok) throw new Error('Failed to fetch profile');
-        const userData = await userResponse.json();
+        // Get current admin user data using server action
+        const profileResult = await getUserProfile();
+        if (!profileResult.success) throw new Error(profileResult.error || 'Failed to fetch profile');
         
-        // Fetch all orders (admin-only endpoint)
-        const ordersResponse = await fetch('/api/admin/orders');
-        if (!ordersResponse.ok) throw new Error('Failed to fetch orders');
-        const ordersData = await ordersResponse.json();
+        // Fetch all orders using the server action
+        const ordersResult = await getAdminOrders();
+        if (!ordersResult.success) throw new Error(ordersResult.error || 'Failed to fetch orders');
         
-        setUser(userData.user);
-        setUserData(userData.userData);
-        setAllOrders(ordersData.orders || []);
+        if (profileResult.user && profileResult.userData) {
+          setUser(profileResult.user as User);
+          setUserData(profileResult.userData as UserData);
+        }
+        setAllOrders(ordersResult.orders as unknown as Order[] || []);
       } catch (error) {
         console.error("Error fetching admin dashboard data:", error);
       } finally {
@@ -180,6 +200,29 @@ export default function AdminDashboard() {
     }
   };
 
+  // Function to show toast
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    
+    // Clear any existing toast timer
+    if (timerRefs.current.toastTimer) {
+      clearTimeout(timerRefs.current.toastTimer);
+    }
+    
+    // Auto-hide after 3 seconds
+    timerRefs.current.toastTimer = setTimeout(() => {
+      setToast({ message: '', type: null });
+    }, 3000);
+  };
+
+  // Clean up all timers when component unmounts
+  useEffect(() => {
+    return () => {
+      if (timerRefs.current.highlightTimer) clearTimeout(timerRefs.current.highlightTimer);
+      if (timerRefs.current.toastTimer) clearTimeout(timerRefs.current.toastTimer);
+    };
+  }, []);
+
   // Function to update order status
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -187,19 +230,19 @@ export default function AdminDashboard() {
       const currentOrder = allOrders.find(order => order._id === orderId);
       const oldStatus = currentOrder?.status || '';
       
-      const response = await fetch(`/api/admin/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          status: newStatus,
-          // If we're changing to "accepted", pass a flag to reduce inventory
-          reduceInventory: newStatus === "accepted" && oldStatus !== "accepted"
-        }),
-      });
+      // Use the server action directly instead of fetch
+      const result = await updateOrderStatusAction(
+        orderId,
+        newStatus,
+        // If we're changing to "accepted", pass a flag to reduce inventory
+        newStatus === "accepted" && oldStatus !== "accepted"
+      );
       
-      if (!response.ok) throw new Error('Failed to update order status');
+      if (!result.success) {
+        console.error('Failed to update order status:', result.error);
+        showToast(result.error || 'Failed to update order status', 'error');
+        return;
+      }
       
       // Update the order in the state
       setAllOrders(prev => 
@@ -209,8 +252,25 @@ export default function AdminDashboard() {
             : order
         )
       );
+      
+      // Set the updated order ID to trigger the highlight effect
+      setUpdatedOrderId(orderId);
+      
+      // Clear any existing highlight timer
+      if (timerRefs.current.highlightTimer) {
+        clearTimeout(timerRefs.current.highlightTimer);
+      }
+      
+      // Clear the highlight after 2 seconds
+      timerRefs.current.highlightTimer = setTimeout(() => {
+        setUpdatedOrderId(null);
+      }, 2000);
+      
+      // Show success message
+      showToast(`Order status updated to "${newStatus}"`, 'success');
     } catch (error) {
       console.error('Error updating order status:', error);
+      showToast('An error occurred while updating order status', 'error');
     }
   };
 
@@ -230,6 +290,14 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Toast notification */}
+      {toast.type && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg transition-all
+          ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+          {toast.message}
+        </div>
+      )}
+      
       {/* Admin Information Section */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
@@ -291,6 +359,7 @@ export default function AdminDashboard() {
                       className={`
                         ${selectedOrderId === order._id ? "bg-slate-700 hover:bg-slate-600" : "hover:bg-slate-700"}
                         ${isNewOrder ? "animate-pulse bg-green-900" : ""}
+                        ${updatedOrderId === order._id ? "bg-blue-900 transition-colors duration-1000" : ""}
                         transition-colors
                       `}
                     >

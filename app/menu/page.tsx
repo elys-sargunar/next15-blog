@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/carousel";
 import MenuItems from "@/components/MenuItems";
 import { FoodItemWithId } from "@/lib/CartContext";
+import { getCategories, getMenuItems } from "@/actions/menu";
 
 // Define types for our data
 type Category = {
@@ -46,17 +47,15 @@ export default function MenuPage() {
       try {
         setLoading(true);
         
-        // Fetch categories
-        const categoryResponse = await fetch('/api/categories');
-        if (!categoryResponse.ok) throw new Error('Failed to fetch categories');
-        const categoryData = await categoryResponse.json();
-        setCategories(categoryData.categories);
+        // Fetch categories using server action
+        const categoryResult = await getCategories();
+        if (!categoryResult.success) throw new Error(categoryResult.error || 'Failed to fetch categories');
+        setCategories((categoryResult.categories || []) as Category[]);
         
-        // Fetch menu items
-        const itemsResponse = await fetch('/api/menuItems');
-        if (!itemsResponse.ok) throw new Error('Failed to fetch menu items');
-        const itemsData = await itemsResponse.json();
-        setMenuItems(itemsData.menuItems);
+        // Fetch menu items using server action
+        const itemsResult = await getMenuItems();
+        if (!itemsResult.success) throw new Error(itemsResult.error || 'Failed to fetch menu items');
+        setMenuItems((itemsResult.menuItems || []) as MenuItem[]);
         
         setLoading(false);
       } catch (err) {
