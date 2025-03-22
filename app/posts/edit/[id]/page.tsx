@@ -1,4 +1,4 @@
-import { updatePost } from "@/actions/posts";
+
 import { getCollection } from "@/lib/db";
 import getAuthUser from "@/lib/getAuthUser";
 import { ObjectId } from "mongodb";

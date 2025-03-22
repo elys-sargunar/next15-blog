@@ -1,7 +1,6 @@
 import { getOrdersByUserId } from "@/actions/orders";
 import { getCollection } from "@/lib/db";
 import getAuthUser from "@/lib/getAuthUser";
-import Link from "next/link";
 import GuestOrdersView from "./guest-view";
 import { ObjectId } from "mongodb";
 import OrderStatusIndicatorWrapper from "./status-indicator";

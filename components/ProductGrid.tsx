@@ -6,7 +6,7 @@ export default async function ProductGrid(category: string){
   const dbCollection = await getCollection("menuItems")
   const dbItems = await dbCollection?.find().sort({$natural: -1}).toArray()
 
-  //console.log(dbItems)
+  console.log(category)
 
   if(dbItems){
     return (

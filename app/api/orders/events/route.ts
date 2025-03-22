@@ -39,6 +39,7 @@ export async function sendEventToAdmins(event: string, data: OrderEventData): Pr
 export async function GET(request: NextRequest) {
   // Only allow admins to connect
   const authUser = await getAuthUser();
+  console.log(request)
   
   if (!authUser) {
     return NextResponse.json(
@@ -79,6 +80,7 @@ export async function GET(request: NextRequest) {
         } catch (e) {
           // Connection was closed
           clearInterval(interval);
+          console.log(e);
         }
       }, 30000);
     },

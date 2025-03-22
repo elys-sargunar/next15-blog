@@ -11,7 +11,6 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import MenuItems from "@/components/MenuItems";
-import { FoodItemWithId } from "@/lib/CartContext";
 
 // Define types for our data
 type Category = {

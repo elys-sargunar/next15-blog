@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import getAuthUser from '@/lib/getAuthUser';
-import { getCollection } from '@/lib/db';
-import { ObjectId } from 'mongodb';
 
 // Explicitly set Node.js runtime
 export const runtime = 'nodejs';
@@ -62,7 +60,7 @@ export async function GET(request: NextRequest) {
   try {
     // Only allow authenticated users
     const authUser = await getAuthUser();
-    
+    console.log(request)
     if (!authUser) {
       console.log('SSE connection rejected: User not authenticated');
       return NextResponse.json(

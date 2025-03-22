@@ -1,12 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { deletePost } from "@/actions/posts";
-import { getOrdersByUserId } from "@/actions/orders";
-import { getCollection } from "@/lib/db";
-import getAuthUser from "@/lib/getAuthUser";
 import { ObjectId } from "mongodb";
-import Link from "next/link";
 
 // Define proper types
 type OrderItem = {

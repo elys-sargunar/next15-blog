@@ -10,7 +10,7 @@ const encodedKey = new TextEncoder().encode(secretKey)
 interface SessionPayload {
   userId: string;
   expiresAt: Date;
-  [key: string]: unknown; // Allow for additional properties if needed
+  [key: string]: unknown; // Allow for additional properties if needed,
 }
 
 export async function encrypt(payload: SessionPayload): Promise<string> {
@@ -28,7 +28,7 @@ export async function decrypt(session: string): Promise<SessionPayload | undefin
         })        
         return payload as SessionPayload;
     } catch (error) {
-        console.log("Failed to verify session.")
+        console.log("Failed to verify session.", error)
         //throw new Error('Failed to verify session.');
     }
 }

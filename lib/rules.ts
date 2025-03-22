@@ -1,4 +1,4 @@
-import { object, string, z } from "zod";
+import { string, z } from "zod";
 
 export const RegisterFormSchema = z.object({
     email: z.string().email({message: "Please enter a valid email address"}).trim(),

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import { FoodCategory } from '@/lib/rules';
 
 // Explicitly set Node.js runtime
 export const runtime = 'nodejs';
@@ -35,9 +36,9 @@ export async function GET(request: Request) {
         ...item,
         _id: item._id.toString(),
         // Handle nested objects with IDs
-        menuCategory: item.menuCategory?.map((cat: any) => ({
+        menuCategory: item.menuCategory?.map((cat: FoodCategory) => ({
           ...cat,
-          _id: cat._id ? cat._id.toString() : undefined,
+          _id: cat.name ? cat.name.toString() : undefined,
           expiryDate: cat.expiryDate ? cat.expiryDate.toISOString() : undefined,
         })),
       }))
