@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react";
-import { getOrdersByUserId } from "@/actions/orders";
-import Link from "next/link";
 
 // Type definition for an order
 type Order = {
@@ -26,9 +24,21 @@ type Order = {
   };
 };
 
+// Define types for user and userData
+type User = {
+  id: string;
+  email: string;
+  role: string;
+};
+
+type UserData = {
+  email: string;
+  isAdmin: boolean;
+};
+
 export default function AdminDashboard() {
-  const [user, setUser] = useState<any>(null);
-  const [userData, setUserData] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);

@@ -6,13 +6,6 @@ import { useRouter } from 'next/navigation';
 // This component handles real-time order status updates for logged-in users
 export default function OrderStatusListener() {
   const [connected, setConnected] = useState(false);
-  const [notifications, setNotifications] = useState<Array<{
-    id: string;
-    message: string;
-    status: string;
-    timestamp: string;
-    seen: boolean;
-  }>>([]);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
@@ -60,7 +53,7 @@ export default function OrderStatusListener() {
         status: connected ? 'connected' : (reconnectAttemptsRef.current > 0 ? 'disconnected' : 'connecting')
       });
     }
-  }, [connected, reconnectAttemptsRef.current]);
+  }, [connected]);
 
   useEffect(() => {
     // Only attempt to connect if we're in a browser environment
@@ -127,21 +120,6 @@ export default function OrderStatusListener() {
                 statusMessage += `status has been updated to ${newStatus}.`;
                 statusClass = 'bg-gray-100 border-gray-400 text-gray-800';
             }
-            
-            // Create a unique notification ID
-            const notificationId = `${orderId}-${Date.now()}`;
-            
-            // Add the notification to the list
-            setNotifications(prev => [
-              {
-                id: notificationId,
-                message: statusMessage,
-                status: newStatus,
-                timestamp: new Date().toISOString(),
-                seen: false
-              },
-              ...prev
-            ]);
             
             // Show toast notification
             showToast(statusMessage, statusClass);

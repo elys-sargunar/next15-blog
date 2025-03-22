@@ -8,10 +8,39 @@ import getAuthUser from "@/lib/getAuthUser";
 import { ObjectId } from "mongodb";
 import Link from "next/link";
 
+// Define proper types
+type OrderItem = {
+  id: string;
+  name: string;
+  price: number;
+  points: number;
+  quantity: number;
+};
+
+type Order = {
+  _id: string | ObjectId;
+  createdAt: string | Date;
+  items: OrderItem[];
+  totalPrice: number;
+  totalPoints: number;
+  status: string;
+};
+
+type User = {
+  userId?: string;
+  email: string;
+};
+
+type UserData = {
+  _id: string;
+  email: string;
+  points: number;
+};
+
 export default function Dashboard() {
-  const [user, setUser] = useState<any>(null);
-  const [userData, setUserData] = useState<any>(null);
-  const [userOrders, setUserOrders] = useState<any[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [userOrders, setUserOrders] = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -89,7 +118,7 @@ export default function Dashboard() {
                     className={selectedOrderId === order._id.toString() ? "bg-slate-700 hover:bg-slate-600" : undefined}
                   >
                     <td 
-                      className={`font-medium cursor-pointer hover:text-blue-400 ${
+                      className={`cursor-pointer hover:text-blue-400 ${
                         selectedOrderId === order._id.toString() ? "text-white" :
                         order.status === "completed" ? "text-green-400" :
                         order.status === "pending" ? "text-slate-800" :
@@ -97,11 +126,11 @@ export default function Dashboard() {
                       }`}
                       onClick={() => handleOrderClick(order._id.toString())}
                     >
-                      {order._id.toString().substring(0, 10)}...
+                      {typeof order._id === 'object' ? order._id.toString().substring(0, 10) : order._id.substring(0, 10)}...
                     </td>
                     <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-slate-800"}>{new Date(order.createdAt).toLocaleDateString("en-GB")} - {new Date(order.createdAt).toLocaleTimeString("en-GB")}</td>
                     <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-slate-800"}>
-                      {order.items?.reduce((total: number, item: any) => total + (item.quantity || 1), 0) || 0} items
+                      {order.items?.reduce((total: number, item: OrderItem) => total + (item.quantity || 1), 0) || 0} items
                     </td>
                     <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-slate-800"}>£{order.totalPrice ? (order.totalPrice / 100).toFixed(2) : "N/A"}</td>
                     <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-amber-600 font-medium"}>{order.totalPoints || 0}</td>
@@ -147,7 +176,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedOrder.items.map((item: any, index: number) => (
+                  {selectedOrder.items.map((item: OrderItem, index: number) => (
                     <tr key={index} className="border-b border-slate-600 hover:bg-slate-600">
                       <td className="font-medium">{item.name}</td>
                       <td>£{(item.price / 100).toFixed(2)}</td>

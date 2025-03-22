@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react";
-import { getCollection } from "@/lib/db";
 import * as React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -14,9 +13,29 @@ import {
 import MenuItems from "@/components/MenuItems";
 import { FoodItemWithId } from "@/lib/CartContext";
 
+// Define types for our data
+type Category = {
+  _id: string;
+  name: string;
+};
+
+type MenuItem = {
+  _id: string;
+  name: string;
+  description: string;
+  price: number;
+  image?: string;
+  menuCategory: CategoryRef[];
+};
+
+type CategoryRef = {
+  _id: string;
+  name: string;
+};
+
 export default function MenuPage() {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +77,7 @@ export default function MenuPage() {
       if (!item.menuCategory) return false;
       
       // Check if any of the item's categories match the selected category
-      return item.menuCategory.some((cat: any) => 
+      return item.menuCategory.some((cat: CategoryRef) => 
         cat.name === selectedCategory
       );
     });
@@ -106,7 +125,7 @@ export default function MenuPage() {
         {categories.length > 0 && (
           <Carousel opts={{ align: "start", loop: true }}>
             <CarouselContent className="-ml-4 max-w-screen-lg mx-auto">
-              {categories.map((category: any) => (
+              {categories.map((category: Category) => (
                 <CarouselItem key={category._id} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/5 lg:basis-1/6 xl:basis-1/6">
                   <Card 
                     className={`cursor-pointer transition-colors ${
