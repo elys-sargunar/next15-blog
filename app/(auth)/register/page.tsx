@@ -26,11 +26,11 @@ export default function Register(){
                     <label htmlFor="password">Password</label>
                     <input type="password" name="password" defaultValue={state && 'password' in state ? state.password : ''}/>
 
-                    {state?.errors?.password && (
+                    {state?.errors && 'password' in state.errors && state.errors.password && (
                         <div className="error">
                             <p>Password must : </p>
                             <ul className="list-disc list-inside ml-4">
-                                {state.errors.password.map((error, index) => (
+                                {state.errors.password.map((error: string, index: number) => (
                                     <li key={index}>{error}</li>
                                 ))}
                             </ul>
@@ -42,7 +42,7 @@ export default function Register(){
                 <div>
                     <label htmlFor="confirmPassword">Confirm Password</label>
                     <input type="password" name="confirmPassword" />
-                    {state?.errors?.confirmPassword && (
+                    {state?.errors && 'confirmPassword' in state.errors && state.errors.confirmPassword && (
                         <p className="text-red-500">{state.errors.confirmPassword}</p>
                     )}
                 </div>
