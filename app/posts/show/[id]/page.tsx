@@ -2,7 +2,7 @@ import PostCard from "@/components/PostCard"
 import { getCollection } from "@/lib/db"
 import { ObjectId } from "mongodb"
 
-export default async function Show({params}){
+export default async function Show({params}: {params: {id: string}}){
     const {id} = await params
 
     const postsCollection = await getCollection("posts")

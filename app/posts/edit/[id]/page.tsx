@@ -1,5 +1,4 @@
 import { updatePost } from "@/actions/posts";
-import BlogForm from "@/components/BlogForm";
 import { getCollection } from "@/lib/db";
 import getAuthUser from "@/lib/getAuthUser";
 import { ObjectId } from "mongodb";
@@ -25,8 +24,6 @@ export default async function Edit({ params }: { params: { id: string } }) {
     return (
         <div className="container w-1/2">
             <h1 className="title">Edit post</h1>
-
-            {post ? <BlogForm handler={updatePost} post={post}/> : <p>Failed to fetch the data.</p>}
         </div>
     )
 }
