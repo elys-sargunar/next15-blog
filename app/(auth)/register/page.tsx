@@ -24,7 +24,7 @@ export default function Register(){
 
                 <div>
                     <label htmlFor="password">Password</label>
-                    <input type="password" name="password" defaultValue={state?.password}/>
+                    <input type="password" name="password" defaultValue={state && 'password' in state ? state.password : ''}/>
 
                     {state?.errors?.password && (
                         <div className="error">
