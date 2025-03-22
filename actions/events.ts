@@ -83,12 +83,12 @@ export async function sendEventToUser(userId: string, event: string, data: Statu
 // Helper functions to manage client connections
 
 // Add an admin client
-export function addAdminClient(id: string, controller: ReadableStreamDefaultController): void {
+export async function addAdminClient(id: string, controller: ReadableStreamDefaultController): Promise<void> {
   adminClients.add({ id, controller });
 }
 
 // Remove an admin client
-export function removeAdminClient(id: string): void {
+export async function removeAdminClient(id: string): Promise<void> {
   const client = Array.from(adminClients).find(client => client.id === id);
   if (client) {
     adminClients.delete(client);
@@ -96,7 +96,7 @@ export function removeAdminClient(id: string): void {
 }
 
 // Add a user client
-export function addUserClient(userId: string, clientId: string, controller: ReadableStreamDefaultController): void {
+export async function addUserClient(userId: string, clientId: string, controller: ReadableStreamDefaultController): Promise<void> {
   if (!userClients.has(userId)) {
     userClients.set(userId, new Set());
   }
@@ -105,7 +105,7 @@ export function addUserClient(userId: string, clientId: string, controller: Read
 }
 
 // Remove a user client
-export function removeUserClient(userId: string, clientId: string): void {
+export async function removeUserClient(userId: string, clientId: string): Promise<void> {
   const userConnections = userClients.get(userId);
   if (userConnections) {
     const client = Array.from(userConnections).find(client => client.id === clientId);
