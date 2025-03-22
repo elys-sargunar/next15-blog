@@ -7,14 +7,17 @@ import Link from "next/link";
 type Order = {
   _id: string;
   createdAt: string;
-  items: Array<{
-    name: string;
-    price: number;
-    quantity: number;
-  }>;
+  items: Array<OrderItem>;
   totalPrice: number;
   totalPoints: number;
   status: string;
+};
+
+// Define order item type
+type OrderItem = {
+  name: string;
+  price: number;
+  quantity: number;
 };
 
 export default function GuestOrdersView() {
@@ -181,7 +184,7 @@ export default function GuestOrdersView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {orderData.items.map((item: any, idx: number) => (
+                {orderData.items.map((item: OrderItem, idx: number) => (
                   <tr key={idx}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">x{item.quantity}</td>

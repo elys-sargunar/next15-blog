@@ -18,6 +18,15 @@ type Order = {
   status: string;
 };
 
+// Define type for order item
+type OrderItem = {
+  id: string;
+  name: string;
+  price: number;
+  points: number;
+  quantity: number;
+};
+
 export default function OrdersTable({ initialOrders }: { initialOrders: Order[] }) {
   // Maintain a state copy of the orders that we can update
   const [orders, setOrders] = useState<Order[]>(initialOrders);
@@ -120,7 +129,7 @@ export default function OrdersTable({ initialOrders }: { initialOrders: Order[] 
                 {new Date(order.createdAt).toLocaleDateString("en-GB")} - {new Date(order.createdAt).toLocaleTimeString("en-GB")}
               </td>
               <td className="px-6 py-4 text-sm text-gray-500">
-                {order.items?.reduce((total: number, item: any) => total + (item.quantity || 1), 0) || 0} items
+                {order.items?.reduce((total: number, item: OrderItem) => total + (item.quantity || 1), 0) || 0} items
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 £{order.totalPrice ? (order.totalPrice / 100).toFixed(2) : "N/A"}

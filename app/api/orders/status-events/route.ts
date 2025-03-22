@@ -6,6 +6,15 @@ import { ObjectId } from 'mongodb';
 // Explicitly set Node.js runtime
 export const runtime = 'nodejs';
 
+// Define the type for status update event data
+interface StatusUpdateEventData {
+  orderId: string;
+  oldStatus: string;
+  newStatus: string;
+  updatedAt: string;
+  [key: string]: unknown; // Allow additional properties
+}
+
 // Keep track of connected clients
 const userClients = new Map<string, Set<{
   id: string;
@@ -13,7 +22,7 @@ const userClients = new Map<string, Set<{
 }>>();
 
 // Function to send an event to a specific user's connected clients
-export async function sendEventToUser(userId: string, event: string, data: any) {
+export async function sendEventToUser(userId: string, event: string, data: StatusUpdateEventData): Promise<void> {
   const encodedData = JSON.stringify(data);
   const userConnections = userClients.get(userId);
   

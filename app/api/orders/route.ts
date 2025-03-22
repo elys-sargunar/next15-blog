@@ -4,6 +4,15 @@ import { ObjectId } from 'mongodb';
 import getAuthUser from '@/lib/getAuthUser';
 import { sendEventToAdmins } from './events/route';
 
+// Define type for order item
+interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  points: number;
+  quantity: number;
+}
+
 // Explicitly set Node.js runtime
 export const runtime = 'nodejs';
 
@@ -25,7 +34,7 @@ export async function POST(request: Request) {
     }
     
     // Calculate total points from order items
-    const totalPoints = body.items.reduce((sum: number, item: any) => {
+    const totalPoints = body.items.reduce((sum: number, item: OrderItem) => {
       const itemPoints = item.points || 0;
       return sum + (itemPoints * item.quantity);
     }, 0);

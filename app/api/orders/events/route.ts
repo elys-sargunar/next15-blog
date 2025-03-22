@@ -6,6 +6,12 @@ import { ObjectId } from 'mongodb';
 // Explicitly set Node.js runtime
 export const runtime = 'nodejs';
 
+// Define the type for order event data
+interface OrderEventData {
+  order?: Record<string, unknown>;
+  [key: string]: unknown; // Allow additional properties
+}
+
 // Keep track of connected clients
 const clients = new Set<{
   id: string;
@@ -13,7 +19,7 @@ const clients = new Set<{
 }>();
 
 // Function to send an event to all connected admin clients
-export async function sendEventToAdmins(event: string, data: any) {
+export async function sendEventToAdmins(event: string, data: OrderEventData): Promise<void> {
   const encodedData = JSON.stringify(data);
   
   for (const client of clients) {

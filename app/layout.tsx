@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Link from "next/link";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { CartProvider } from "@/lib/CartContext";
