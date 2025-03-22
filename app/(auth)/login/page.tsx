@@ -9,7 +9,7 @@ export default function Login(){
     const [state, action, isPending ] = useActionState(login, undefined)
 
     return (
-        <div className="container w-1/2">
+        <div className="container max-w-md mx-auto">
             <h1 className="title">Login</h1>
 
             <form action={action} className="space-y-4">

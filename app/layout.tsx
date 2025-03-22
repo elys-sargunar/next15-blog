@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Link from "next/link";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import { CartProvider } from "@/lib/CartContext";
+import OrderStatusListenerWrapper from "@/components/OrderStatusListenerWrapper";
 
 export const metadata: Metadata = {
   title: "NextJs Blog",
@@ -17,16 +18,19 @@ export default function RootLayout({
 
   return (
     <html lang="en">      
-      <body>     
-        <header>
-          <Navigation/>
-        </header>
+      <body>
+        <CartProvider>
+          <OrderStatusListenerWrapper />
+          <header>
+            <Navigation/>
+          </header>
 
-        <main>
-          {children}
-        </main>
-
-        <Footer/>
+          <main>
+            {children}
+          </main>
+        
+          <Footer/>
+        </CartProvider>
       </body>
     </html>
   )

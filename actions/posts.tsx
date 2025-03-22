@@ -7,7 +7,7 @@ import { getCollection } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 
-export async function createPost(state, formData){
+export async function createPost(state: { errors?: any, title?: string, content?: string }, formData: FormData){
 
     // Check if the user is signed in
     const user = await getAuthUser()
@@ -38,14 +38,14 @@ export async function createPost(state, formData){
         const post = {
             title: validatedFields.data.title,
             content: validatedFields.data.content,
-            userId: ObjectId.createFromHexString(user.userId)
+            userId: ObjectId.createFromHexString(user.userId as string)
         }
         await postsCollection?.insertOne(post)
         console.log(post.userId)
     }
-    catch(error) {
+    catch(error: unknown) {
         return {
-            errors: {title: error.message}
+            errors: {title: error instanceof Error ? error.message : "An unknown error occurred"}
         };
     }    
 
@@ -53,7 +53,7 @@ export async function createPost(state, formData){
     redirect("/dashboard")
 }
 
-export async function updatePost(state, formData){
+export async function updatePost(state: { errors?: any, title?: string, content?: string }, formData: FormData){
 
     // Check if the user is signed in
     const user = await getAuthUser()
@@ -83,6 +83,11 @@ export async function updatePost(state, formData){
 
     // Find the post
     const postsCollection = await getCollection("posts");
+
+    if (!postId || typeof postId !== 'string') {
+        return redirect("/")
+    }
+
     const post = await postsCollection?.findOne({
         _id: ObjectId.createFromHexString(postId)
     })
@@ -107,7 +112,7 @@ export async function updatePost(state, formData){
     redirect("/dashboard")
 }
 
-export async function deletePost(formData){
+export async function deletePost(formData: FormData){
     // Check if the user is signed in
     const user = await getAuthUser()
     if(!user){
@@ -115,8 +120,14 @@ export async function deletePost(formData){
     }
 
     const postCollection = await getCollection("posts")
+    const postId = formData.get("postId")
+    
+    if (!postId || typeof postId !== 'string') {
+        return redirect("/")
+    }
+    
     const post = await postCollection?.findOne({
-        _id: ObjectId.createFromHexString(formData.get("postId")),
+        _id: ObjectId.createFromHexString(postId),
     })
 
     if(user.userId !== post?.userId.toString()) return redirect("/")

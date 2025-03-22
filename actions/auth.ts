@@ -37,7 +37,7 @@ export async function register(state:any, formData:any){
     const existingUser = await userCollection.findOne({email})
     if(existingUser){
         return {errors: {email: "Email already exists."}}
-    }
+    }    
 
     // Process the password field by hashing password
     const hashedPassword = await hashPassword(password);
@@ -46,6 +46,7 @@ export async function register(state:any, formData:any){
     const results = await userCollection?.insertOne({
         email, 
         password: hashedPassword,
+        isAdmin: false, // Default new users to non-admin
     })
 
     // Create a session for user
@@ -97,6 +98,10 @@ export async function login(state:any, formData:any){
 
     // Create a session for user
     await createSession(existingUser._id.toString())
+
+    if (existingUser.isAdmin) {
+        redirect("/admin")
+    }
 
     // Redirect
     redirect("/dashboard")

@@ -14,7 +14,7 @@ export default async function Home() {
         {
           posts.map((post) => (
             <div key={post._id.toString()}>
-              <PostCard post={post}></PostCard>
+              <PostCard post={post} ></PostCard>
             </div>
           ))
         }

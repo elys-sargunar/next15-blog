@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export default function PostCard({post}){
+export default function PostCard({post} : {post: any}){
     return (
         <div className="border border-slate-600 border-dashed p-4 rounded-md h-full bg-white">
             <p className="text-slate-400 text-xs">
