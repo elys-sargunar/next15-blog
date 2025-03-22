@@ -82,7 +82,7 @@ export default function OrdersTable({ initialOrders }: { initialOrders: Order[] 
   if (!orders || orders.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-xl text-gray-500 mb-6">You haven't placed any orders yet</p>
+        <p className="text-xl text-gray-500 mb-6">You haven&apos;t placed any orders yet</p>
       </div>
     );
   }

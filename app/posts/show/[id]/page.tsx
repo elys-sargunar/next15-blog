@@ -17,7 +17,7 @@ export default async function Show({params}: {params: {id: string}}){
         <div className="container w-1/2">
             {
                 post ?
-                <PostCard post={post}/>
+                <PostCard post={post as unknown as {_id: string, title: string, content: string}}/>
                 : <p>Failed to fetch the data.</p>
             }
         </div>

@@ -16,7 +16,7 @@ export default function Login(){
                 <div>
                     <label htmlFor="email">Email</label>
                     <input type="text" name="email" defaultValue={state?.email}/>
-                    {state?.errors?.email && (
+                    {state?.errors && 'email' in state.errors && (
                         <p className="text-red-500">{state.errors.email}</p>
                     )}
                 </div>
@@ -24,8 +24,8 @@ export default function Login(){
 
                 <div>
                     <label htmlFor="password">Password</label>
-                    <input type="password" name="password" defaultValue={state?.password}/>
-                    {state?.errors?.password && (
+                    <input type="password" name="password" />
+                    {state?.errors && 'password' in state.errors && (
                         <p className="text-red-500">{state.errors.password}</p>
                     )}
                 </div>
