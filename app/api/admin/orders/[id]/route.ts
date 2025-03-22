@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import getAuthUser from '@/lib/getAuthUser';
 import { ObjectId } from 'mongodb';
@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 
 // Based directly on Next.js documentation
 export async function PATCH(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   // Get the order ID from the URL parameters
