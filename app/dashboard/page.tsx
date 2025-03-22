@@ -151,7 +151,7 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold mb-4">Order Details</h3>
             
             <div className="mb-6">
-              <p className="text-slate-300"><span className="font-medium">Order ID:</span> {selectedOrder._id}</p>
+              <p className="text-slate-300"><span className="font-medium">Order ID:</span> {selectedOrder._id.toString()}</p>
               <p className="text-slate-300"><span className="font-medium">Date:</span> {new Date(selectedOrder.createdAt).toLocaleString()}</p>
               <p className="text-slate-300"><span className="font-medium">Status:</span> {selectedOrder.status || "pending"}</p>
               <p className="text-slate-300"><span className="font-medium">Total Price:</span> £{(selectedOrder.totalPrice / 100).toFixed(2)}</p>

@@ -11,6 +11,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import MenuItems from "@/components/MenuItems";
+import { FoodItemWithId } from "@/lib/CartContext";
 
 // Define types for our data
 type Category = {
@@ -161,7 +162,7 @@ export default function MenuPage() {
             : 'All Menu Items'}
         </h2>
         {filteredMenuItems.length > 0 ? (
-          <MenuItems menuItems={filteredMenuItems} />
+          <MenuItems menuItems={filteredMenuItems as unknown as FoodItemWithId[]} />
         ) : (
           <p className="text-center py-8 text-gray-500">
             No menu items found {selectedCategory ? `in "${selectedCategory}" category` : ''}.

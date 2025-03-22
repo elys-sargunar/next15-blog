@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import getAuthUser from '@/lib/getAuthUser';
 import { ObjectId } from 'mongodb';
@@ -7,12 +7,16 @@ import { sendEventToUser } from '../../../orders/status-events/route';
 // Explicitly set Node.js runtime
 export const runtime = 'nodejs';
 
+// Based directly on Next.js documentation
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string }}
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
+  // Get the order ID from the URL parameters
+  const id = params.id;
+  
   try {
-    const id = params.id;
+    // Parse the request body
     const { status, reduceInventory } = await request.json();
     
     // Check if user is authenticated and is an admin
