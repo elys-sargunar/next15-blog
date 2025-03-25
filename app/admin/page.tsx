@@ -19,6 +19,7 @@ type Order = {
   totalPoints: number;
   status: string;
   createdAt: string;
+  lastUpdated?: string;
   customerInfo: {
     name: string;
     email: string;
@@ -67,6 +68,18 @@ export default function AdminDashboard() {
     toastTimer?: NodeJS.Timeout
   }>({});
 
+  // Helper function to sort orders with most recent updates at the top
+  const sortOrdersByRecent = (orders: Order[]): Order[] => {
+    return [...orders].sort((a, b) => {
+      // First sort by lastUpdated if available
+      if (a.lastUpdated && b.lastUpdated) {
+        return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+      }
+      // Otherwise sort by creation date
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  };
+
   // Setup SSE connection for real-time order updates
   useEffect(() => {
     async function fetchInitialData() {
@@ -83,7 +96,10 @@ export default function AdminDashboard() {
           setUser(profileResult.user as User);
           setUserData(profileResult.userData as UserData);
         }
-        setAllOrders(ordersResult.orders as unknown as Order[] || []);
+        
+        // Initialize with orders sorted by date
+        const sortedOrders = sortOrdersByRecent(ordersResult.orders as unknown as Order[] || []);
+        setAllOrders(sortedOrders);
       } catch (error) {
         console.error("Error fetching admin dashboard data:", error);
       } finally {
@@ -107,20 +123,38 @@ export default function AdminDashboard() {
         console.log('Received connected event:', event.data);
       });
       
+      // Handle new order events
       eventSource.addEventListener('new-order', (event) => {
         try {
+          console.log('ADMIN: Received new order event:', event.data);
           const data = JSON.parse(event.data);
           const newOrder = data.order as Order;
+          
+          if (!newOrder || !newOrder._id) {
+            console.error('ADMIN: Invalid new order data received:', data);
+            return;
+          }
+          
+          console.log('ADMIN: Processing new order:', newOrder._id);
           
           // Add the new order to the state
           setAllOrders(prevOrders => {
             // Check if we already have this order (avoid duplicates)
             if (prevOrders.some(order => order._id === newOrder._id)) {
+              console.log(`ADMIN: Order ${newOrder._id} already exists in state, not adding again`);
               return prevOrders;
             }
             
-            // Add new order at the beginning of the array (most recent first)
-            return [newOrder, ...prevOrders];
+            console.log(`ADMIN: Adding new order ${newOrder._id} to state`);
+            
+            // Add new order with lastUpdated field
+            const orderWithTimestamp = {
+              ...newOrder,
+              lastUpdated: new Date().toISOString() 
+            };
+            
+            // Re-sort orders with new order included
+            return sortOrdersByRecent([orderWithTimestamp, ...prevOrders]);
           });
           
           // Add to new order IDs for highlighting
@@ -133,6 +167,9 @@ export default function AdminDashboard() {
           // Play notification sound
           playNotificationSound();
           
+          // Show toast notification
+          showToast(`New order received: ${newOrder._id.substring(0, 8)}...`, 'success');
+          
           // Clear the highlighting after 10 seconds
           setTimeout(() => {
             setNewOrderIds(prev => {
@@ -142,7 +179,56 @@ export default function AdminDashboard() {
             });
           }, 10000);
         } catch (error) {
-          console.error('Error processing new order event:', error);
+          console.error('ADMIN: Error processing new order event:', error);
+        }
+      });
+      
+      // Handle order update events (status changes)
+      eventSource.addEventListener('order-update', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'status-change') {
+            const { orderId, oldStatus, newStatus } = data;
+            
+            console.log(`Received order update: Order ${orderId} (${oldStatus} -> ${newStatus})`);
+            
+            // Update the order in state
+            setAllOrders(prevOrders => {
+              const updatedOrders = prevOrders.map(order => 
+                order._id === orderId 
+                  ? { 
+                      ...order, 
+                      status: newStatus, 
+                      lastUpdated: new Date().toISOString() 
+                    } 
+                  : order
+              );
+              
+              // Re-sort to ensure updated orders appear at the top
+              return sortOrdersByRecent(updatedOrders);
+            });
+            
+            // Set the order as updated for highlighting
+            setUpdatedOrderId(orderId);
+            
+            // Play notification sound
+            playNotificationSound();
+            
+            // Show toast notification
+            showToast(`Order ${orderId.substring(0, 8)}... updated to "${newStatus}"`, 'success');
+            
+            // Clear any existing highlight timer
+            if (timerRefs.current.highlightTimer) {
+              clearTimeout(timerRefs.current.highlightTimer);
+            }
+            
+            // Clear the highlight after 2 seconds
+            timerRefs.current.highlightTimer = setTimeout(() => {
+              setUpdatedOrderId(null);
+            }, 3000);
+          }
+        } catch (error) {
+          console.error('Error processing order update event:', error);
         }
       });
       
@@ -179,24 +265,40 @@ export default function AdminDashboard() {
   const playNotificationSound = () => {
     try {
       if (audioRef.current) {
+        console.log('ADMIN: Attempting to play notification sound');
         // Reset the audio to the beginning if it's already playing
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
         
         // Play the notification sound
         audioRef.current.play().catch(e => {
-          console.log('Audio play error:', e);
+          console.log('ADMIN: Audio play error:', e);
           
           // If autoplay is blocked, try playing with user interaction
-          console.log('Note: Most browsers require user interaction before playing audio');
+          console.log('ADMIN: Note: Most browsers require user interaction before playing audio');
         });
       } else {
         // If audio element doesn't exist yet, create it
-        audioRef.current = new Audio('/alert.mp3');
-        audioRef.current.play().catch(e => console.log('Audio play error:', e));
+        console.log('ADMIN: Creating new Audio element for notification sound');
+        try {
+          audioRef.current = new Audio('/alert.mp3');
+          audioRef.current.play().catch(e => {
+            console.log('ADMIN: Audio play error (possibly missing file or autoplay restriction):', e);
+            
+            // Fallback to browser's native notification sound
+            if ('Notification' in window && Notification.permission === 'granted') {
+              console.log('ADMIN: Attempting to use browser notification API as fallback');
+              new Notification('New Order', { 
+                body: 'You have received a new order' 
+              });
+            }
+          });
+        } catch (err) {
+          console.error('ADMIN: Error creating audio element:', err);
+        }
       }
     } catch (error) {
-      console.log('Error playing notification sound:', error);
+      console.log('ADMIN: Error playing notification sound:', error);
     }
   };
 
@@ -244,14 +346,21 @@ export default function AdminDashboard() {
         return;
       }
       
-      // Update the order in the state
-      setAllOrders(prev => 
-        prev.map(order => 
+      // Update the order in the state with lastUpdated timestamp
+      setAllOrders(prev => {
+        const updatedOrders = prev.map(order => 
           order._id === orderId 
-            ? { ...order, status: newStatus } 
+            ? { 
+                ...order, 
+                status: newStatus, 
+                lastUpdated: new Date().toISOString() 
+              } 
             : order
-        )
-      );
+        );
+        
+        // Re-sort to ensure updated orders appear at the top
+        return sortOrdersByRecent(updatedOrders);
+      });
       
       // Set the updated order ID to trigger the highlight effect
       setUpdatedOrderId(orderId);

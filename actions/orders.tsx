@@ -1,11 +1,12 @@
 "use server"
 
-import getAuthUser from "@/lib/getAuthUser";
-import { FoodItem, foodItemExample, foodItemSchema, FoodOrder } from "@/lib/rules";
-import { redirect } from "next/navigation";
-import { getCollection } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { FoodItem, foodItemExample, foodItemSchema, FoodOrder } from "@/lib/rules";
+import { getCollection } from "@/lib/db";
+import { sendEventToAdmins, broadcastOrderStatusUpdate } from "@/actions/events";
+import getAuthUser from "@/lib/getAuthUser";
 
 // Define type for cart item
 interface CartItem {
@@ -53,70 +54,86 @@ interface OrderResponse {
 /**
  * Places a new order
  */
-export async function placeOrder(orderData: PlaceOrderRequest): Promise<OrderResponse> {
+export async function placeOrder(formData: FormData) {
   try {
-    // Get the authenticated user (optional)
+    // Get the authenticated user
     const authUser = await getAuthUser();
     
-    // Access the orders collection
-    const ordersCollection = await getCollection("orders");
-    if (!ordersCollection) {
+    // Reject orders from unauthenticated users
+    if (!authUser || !authUser.userId) {
       return {
         success: false,
-        error: "Failed to connect to orders collection"
+        message: "You must be logged in to place an order"
       };
     }
     
-    // Calculate total points from order items
-    const totalPoints = orderData.items.reduce((sum: number, item: OrderItem) => {
-      const itemPoints = item.points || 0;
-      return sum + (itemPoints * item.quantity);
-    }, 0);
+    // Parse the form data
+    const cartItems = JSON.parse(formData.get('cartItems') as string);
+    const totalPrice = parseInt(formData.get('totalPrice') as string);
+    const totalPoints = parseInt(formData.get('totalPoints') as string);
     
-    // Prepare the order document
-    const orderDoc = {
-      items: orderData.items,
-      totalPrice: orderData.totalPrice,
-      totalPoints: totalPoints,
-      userId: authUser ? ObjectId.createFromHexString(authUser.userId as string) : null,
-      status: "pending",
+    // Create order document with required userId
+    const order = {
+      userId: ObjectId.createFromHexString(authUser.userId as string), // Convert string ID to ObjectId
+      userEmail: formData.get('email') || null,
+      items: cartItems,
+      totalPrice,
+      totalPoints,
+      status: 'pending',
       createdAt: new Date(),
-      customerInfo: orderData.customerInfo || {},
+      lastUpdated: new Date(), // Add lastUpdated field for sorting
     };
     
-    // Insert the order into the collection
-    const result = await ordersCollection.insertOne(orderDoc);
-    
-    // If user is authenticated, update their points
-    if (authUser) {
-      const usersCollection = await getCollection("users");
-      if (usersCollection) {
-        await usersCollection.updateOne(
-          { _id: ObjectId.createFromHexString(authUser.userId as string) },
-          { $inc: { points: totalPoints } }
-        );
-      }
+    // Insert order into db
+    const ordersCollection = await getCollection("orders");
+    if (!ordersCollection) {
+      throw new Error("Failed to connect to database");
     }
     
+    const result = await ordersCollection.insertOne(order);
+    
     if (result.acknowledged) {
-      // Get the new order ID
-      const newOrderId = result.insertedId.toString();
+      console.log(`ORDERS: New order created with ID ${result.insertedId}`);
       
-      // Create serialized order for sending via SSE
-      const serializedOrder = {
-        ...orderDoc,
-        _id: newOrderId,
-        userId: orderDoc.userId ? orderDoc.userId.toString() : null,
-        createdAt: orderDoc.createdAt.toISOString()
-      };
+      // Send notification to all connected admin clients about the new order
+      try {
+        console.log(`ORDERS: Broadcasting new order notification to admins`);
+        
+        // Create a serialized order object for the event
+        const serializedOrder = {
+          _id: result.insertedId.toString(),
+          userId: authUser.userId?.toString(),
+          userEmail: order.userEmail,
+          items: order.items,
+          totalPrice: order.totalPrice,
+          totalPoints: order.totalPoints,
+          status: order.status,
+          createdAt: order.createdAt.toISOString(),
+          lastUpdated: order.lastUpdated.toISOString()
+        };
+        
+        // Notify admins with full order details
+        await sendEventToAdmins("new-order", { order: serializedOrder });
+        console.log(`ORDERS: Successfully sent admin notifications for new order ${result.insertedId}`);
+      } catch (notifyError) {
+        console.error(`ORDERS: Error notifying admins about new order:`, notifyError);
+        // Continue even if admin notification fails
+      }
       
-      // Use dynamic import to avoid circular dependency
-      const { sendEventToAdmins } = await import('@/actions/events');
-      
-      // Notify all connected admin clients about the new order
-      await sendEventToAdmins('new-order', {
-        order: serializedOrder
-      });
+      // Notify the user about their new order
+      try {
+        console.log(`ORDERS: Sending order confirmation to user ${authUser.userId}`);
+        await broadcastOrderStatusUpdate(
+          authUser.userId as string, 
+          result.insertedId.toString(),
+          "", // No old status for new orders
+          "pending" // Initial status is pending
+        );
+        console.log(`ORDERS: Successfully sent order confirmation to user ${authUser.userId}`);
+      } catch (userNotifyError) {
+        console.error(`ORDERS: Error notifying user about new order:`, userNotifyError);
+        // Continue even if user notification fails
+      }
       
       // Revalidate relevant paths
       revalidatePath('/my-orders');
@@ -124,21 +141,17 @@ export async function placeOrder(orderData: PlaceOrderRequest): Promise<OrderRes
       
       return {
         success: true,
-        orderId: newOrderId,
-        totalPoints: totalPoints,
-        message: "Order placed successfully"
+        message: "Order placed successfully",
+        orderId: result.insertedId.toString()
       };
     } else {
-      return {
-        success: false,
-        error: "Failed to save order"
-      };
+      throw new Error("Failed to place order");
     }
   } catch (error) {
     console.error("Error placing order:", error);
     return {
       success: false,
-      error: "An error occurred while placing your order"
+      message: error instanceof Error ? error.message : "An unknown error occurred"
     };
   }
 }

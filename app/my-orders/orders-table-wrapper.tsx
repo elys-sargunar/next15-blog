@@ -21,9 +21,16 @@ type Order = {
   totalPrice: number;
   totalPoints: number;
   status: string;
+  userId?: string;
 };
 
-export default function OrdersTableWrapper({ initialOrders }: { initialOrders: Order[] }) {
+export default function OrdersTableWrapper({ 
+  initialOrders, 
+  currentUserId 
+}: { 
+  initialOrders: Order[],
+  currentUserId?: string
+}) {
   // Check if there are no orders and handle the empty state directly in the wrapper
   if (!initialOrders || initialOrders.length === 0) {
     return (
@@ -40,5 +47,5 @@ export default function OrdersTableWrapper({ initialOrders }: { initialOrders: O
   }
   
   // Pass the orders to the client component for real-time updating
-  return <OrdersTable initialOrders={initialOrders} />;
+  return <OrdersTable initialOrders={initialOrders} currentUserId={currentUserId} />;
 } 

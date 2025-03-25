@@ -3,8 +3,9 @@
 import { getCollection } from '@/lib/db';
 import getAuthUser from '@/lib/getAuthUser';
 import { ObjectId } from 'mongodb';
-import { sendEventToUser } from '@/actions/events';
+import { broadcastOrderStatusUpdate } from '@/actions/events';
 import { revalidatePath } from 'next/cache';
+import { sendEventToAdmins } from '@/actions/events';
 
 /**
  * Updates an order's status and optionally reduces inventory
@@ -15,10 +16,13 @@ export async function updateOrderStatus(
   reduceInventory: boolean
 ) {
   try {
+    console.log(`ADMIN: Starting updateOrderStatus for order ${orderId} -> ${status}`);
+    
     // Check if user is authenticated and is an admin
     const authUser = await getAuthUser();
     
     if (!authUser) {
+      console.log(`ADMIN: Authentication failed for updateOrderStatus`);
       return { success: false, error: "Unauthorized" };
     }
     
@@ -29,6 +33,7 @@ export async function updateOrderStatus(
     });
     
     if (!userData || !userData.isAdmin) {
+      console.log(`ADMIN: Admin verification failed for user ${authUser.userId}`);
       return { success: false, error: "Access denied. Admin privileges required." };
     }
     
@@ -37,8 +42,11 @@ export async function updateOrderStatus(
     const order = await ordersCollection?.findOne({ _id: new ObjectId(orderId) });
     
     if (!order) {
+      console.log(`ADMIN: Order ${orderId} not found`);
       return { success: false, error: "Order not found" };
     }
+    
+    console.log(`ADMIN: Found order ${orderId}, user: ${order.userId ? order.userId.toString() : 'none'}`);
     
     // Store the old status to check if it's actually changing
     const oldStatus = order.status || "pending";
@@ -78,31 +86,61 @@ export async function updateOrderStatus(
     // Update the order status
     const result = await ordersCollection?.updateOne(
       { _id: new ObjectId(orderId) },
-      { $set: { status } }
+      { $set: { 
+        status,
+        lastUpdated: new Date() // Add lastUpdated timestamp when status changes
+      }}
     );
     
     if (result?.matchedCount === 0) {
+      console.log(`ADMIN: Failed to update order ${orderId} - not found`);
       return { success: false, error: "Order not found" };
     }
     
-    // Notify the user of the status change if this order belongs to a user
-    // and if the status has actually changed
-    if (order.userId && status !== oldStatus) {
-      const userId = order.userId.toString();
+    console.log(`ADMIN: Successfully updated order ${orderId} from ${oldStatus} to ${status}`);
+    
+    // Check if status has actually changed
+    if (status !== oldStatus) {
       try {
-        // Send status update event to the user
-        await sendEventToUser(userId, 'order-status-update', {
+        console.log(`ADMIN: Status changed, sending notifications...`);
+        
+        // 1. First notify all admins about the status change
+        console.log(`ADMIN: Notifying all admin clients...`);
+        await sendEventToAdmins('order-update', {
+          type: 'status-change',
           orderId,
           oldStatus,
           newStatus: status,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          updatedBy: authUser.userId
         });
         
-        console.log(`Notified user ${userId} about order ${orderId} status change to ${status}`);
+        console.log(`ADMIN: Notified all admins about order ${orderId} status change to ${status}`);
+        
+        // 2. Then notify the user if order has userId (no more guest orders)
+        if (order.userId) {
+          // Ensure we have a string userId to use for notification
+          const userId = order.userId.toString();
+          
+          console.log(`ADMIN: Notifying user ${userId} about order ${orderId}...`);
+          await broadcastOrderStatusUpdate(
+            userId,
+            orderId,
+            oldStatus,
+            status
+          );
+          
+          console.log(`ADMIN: Successfully notified user ${userId} about their order ${orderId} status change to ${status}`);
+        } else {
+          console.log(`ADMIN: Order ${orderId} has no userId associated, skipping user notification`);
+        }
+        
       } catch (notifyError) {
-        console.error(`Error notifying user ${userId}:`, notifyError);
+        console.error(`ADMIN: Error broadcasting status update:`, notifyError);
         // Continue even if notification fails
       }
+    } else {
+      console.log(`ADMIN: Status unchanged (${status}), skipping notifications`);
     }
     
     // Revalidate the admin orders page and the specific order page

@@ -26,35 +26,35 @@ export default function OrderPage() {
     setOrderError(null);
     
     try {
-      // Prepare the order data
-      const orderData = {
-        items: items.map(cartItem => ({
-          id: typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString(),
-          name: cartItem.item.name,
-          price: cartItem.item.price,
-          points: cartItem.item.points || 0,
-          quantity: cartItem.quantity
-        })),
-        totalPrice: totalPrice,
-        customerInfo: {
-          name: "Guest User",
-          email: "",
-          address: ""
-        }
-      };
-
-      // Call the server action instead of using fetch
-      const result = await placeOrder(orderData);
+      // Create FormData object for the order
+      const formData = new FormData();
+      
+      // Add cart items as JSON string
+      const cartItems = items.map(cartItem => ({
+        id: typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString(),
+        name: cartItem.item.name,
+        price: cartItem.item.price,
+        points: cartItem.item.points || 0,
+        quantity: cartItem.quantity
+      }));
+      
+      formData.append('cartItems', JSON.stringify(cartItems));
+      formData.append('totalPrice', totalPrice.toString());
+      formData.append('totalPoints', totalPoints.toString());
+      formData.append('email', ''); // Optional email for guest users
+      
+      // Call the server action with FormData
+      const result = await placeOrder(formData);
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to place order');
+        throw new Error(result.message || 'Failed to place order');
       }
 
       // Store the order ID for reference
       setOrderId(result.orderId!);
       
-      // Store earned points
-      setEarnedPoints(result.totalPoints || totalPoints);
+      // Since the API response no longer includes totalPoints, use the calculated value
+      setEarnedPoints(totalPoints);
       
       // Clear the cart
       clearCart();

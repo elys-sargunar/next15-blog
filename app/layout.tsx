@@ -25,7 +25,7 @@ export default function RootLayout({
             <Navigation/>
           </header>
 
-          <main>
+          <main className="w-full overflow-x-hidden">
             {children}
           </main>
         

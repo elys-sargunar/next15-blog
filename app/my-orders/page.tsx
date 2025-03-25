@@ -1,10 +1,10 @@
 import { getOrdersByUserId } from "@/actions/orders";
 import { getCollection } from "@/lib/db";
 import getAuthUser from "@/lib/getAuthUser";
-import GuestOrdersView from "./guest-view";
 import { ObjectId } from "mongodb";
 import OrderStatusIndicatorWrapper from "./status-indicator";
 import OrdersTableWrapper from "./orders-table-wrapper";
+import { redirect } from "next/navigation";
 
 // Define the Order type to match what our client components expect
 type Order = {
@@ -20,15 +20,16 @@ type Order = {
   totalPrice: number;
   totalPoints: number;
   status: string;
+  userId?: string;
 };
 
 export default async function MyOrdersPage() {
   // Check if the user is signed in
   const user = await getAuthUser();
   
-  // If no user is logged in, show the guest view
+  // If no user is logged in, redirect to login
   if (!user) {
-    return <GuestOrdersView />;
+    redirect("/login");
   }
 
   // Fetch complete user data including points
@@ -49,7 +50,8 @@ export default async function MyOrdersPage() {
     items: Array.isArray(order.items) ? order.items : [],
     totalPrice: typeof order.totalPrice === 'number' ? order.totalPrice : 0,
     totalPoints: typeof order.totalPoints === 'number' ? order.totalPoints : 0,
-    status: typeof order.status === 'string' ? order.status : 'pending'
+    status: typeof order.status === 'string' ? order.status : 'pending',
+    userId: order.userId ? order.userId.toString() : user.userId as string
   })) : [];
 
   return (
@@ -74,7 +76,10 @@ export default async function MyOrdersPage() {
         </div>
         
         {/* Use the client-side OrdersTable component with properly typed orders */}
-        <OrdersTableWrapper initialOrders={orders} />
+        <OrdersTableWrapper 
+          initialOrders={orders} 
+          currentUserId={user.userId as string} 
+        />
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import getAuthUser from "./lib/getAuthUser"
 
-const protectedRoutes = ["/posts/create"] // Removed dashboard as it has its own layout check
+const protectedRoutes = ["/posts/create", "/order", "/my-orders"] // Added my-orders to protected routes
 const publicRoutes = ["/login", "/register"]
 
 export default async function middleware(req:NextRequest){

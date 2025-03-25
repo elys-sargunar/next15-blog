@@ -49,6 +49,7 @@ export default function ClientNavigation({ authUser, userData }: ClientNavigatio
           <>
             {/* My Orders link - visible on all device sizes */}
             <NavLink label="Dashboard" href="/dashboard"></NavLink>
+            <NavLink label="My Orders" href="/my-orders"></NavLink>
             {/* Add this conditional rendering for admin link */}
             {userData?.isAdmin && (
               <NavLink label="Admin" href="/admin"></NavLink>
@@ -60,9 +61,6 @@ export default function ClientNavigation({ authUser, userData }: ClientNavigatio
           </>
         ) : (
           <>
-            
-            {/* My Orders link - visible on all device sizes */}
-            <NavLink label="My Orders" href="/my-orders"></NavLink>
             <NavLink label="Login" href="/login"></NavLink>
             <NavLink label="Register" href="/register"></NavLink>            
             <CartIcon />

@@ -16,6 +16,8 @@ type Order = {
   totalPrice: number;
   totalPoints: number;
   status: string;
+  userId?: string;
+  lastUpdated?: string; // Add lastUpdated field to track when order was last changed
 };
 
 // Define type for order item
@@ -27,7 +29,7 @@ type OrderItem = {
   quantity: number;
 };
 
-export default function OrdersTable({ initialOrders }: { initialOrders: Order[] }) {
+export default function OrdersTable({ initialOrders, currentUserId }: { initialOrders: Order[], currentUserId?: string }) {
   // Maintain a state copy of the orders that we can update
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   // Track recently updated orders for highlighting
@@ -36,22 +38,53 @@ export default function OrdersTable({ initialOrders }: { initialOrders: Order[] 
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
+    console.log("OrdersTable: Setting up listener for order status updates");
+    
     // Create a broadcast channel to listen for order status updates
     const channel = new BroadcastChannel('order-status-updates');
     
     // Listen for status updates
     channel.addEventListener('message', (event) => {
+      console.log("OrdersTable: Received broadcast channel message:", event.data);
+      
       if (event.data && event.data.type === 'status-update') {
-        const { orderId, newStatus } = event.data;
+        const { orderId, newStatus, userId } = event.data;
+        
+        // If currentUserId is provided, only process updates for this user
+        if (currentUserId && userId && userId !== currentUserId) {
+          console.log(`OrdersTable: Ignoring update for order ${orderId} - belongs to user ${userId}, not current user ${currentUserId}`);
+          return;
+        }
+        
+        console.log(`OrdersTable: Processing status update for order ${orderId}: ${newStatus}`);
+        
+        // Check if we have this order in our local state
+        const orderExists = orders.some(order => order._id === orderId);
+        if (!orderExists) {
+          console.log(`OrdersTable: Order ${orderId} not found in local state, ignoring update`);
+          return;
+        }
         
         // Update the specific order's status in our state
-        setOrders(currentOrders => 
-          currentOrders.map(order => 
+        setOrders(currentOrders => {
+          const updatedOrders = currentOrders.map(order => 
             order._id === orderId 
-              ? { ...order, status: newStatus } 
+              ? { ...order, status: newStatus, lastUpdated: new Date().toISOString() } 
               : order
-          )
-        );
+          );
+          
+          // Sort orders so most recently updated appear first
+          return [...updatedOrders].sort((a, b) => {
+            // First sort by lastUpdated (if available)
+            if (a.lastUpdated && b.lastUpdated) {
+              return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+            }
+            // Otherwise sort by creation date
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          });
+        });
+        
+        console.log(`OrdersTable: Updated order ${orderId} to status ${newStatus}`);
         
         // Set the updated order ID to trigger the highlight effect
         setUpdatedOrderId(orderId);
@@ -71,11 +104,20 @@ export default function OrdersTable({ initialOrders }: { initialOrders: Order[] 
     
     // Cleanup on unmount
     return () => {
+      console.log("OrdersTable: Cleaning up broadcast channel listener");
       channel.close();
       if (highlightTimeoutRef.current) {
         clearTimeout(highlightTimeoutRef.current);
       }
     };
+  }, [currentUserId, orders]);
+  
+  // Sort orders on initial render to ensure most recent are at the top
+  useEffect(() => {
+    console.log("OrdersTable: Initial sorting of orders");
+    setOrders(orders => 
+      [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    );
   }, []);
   
   // If there are no orders, show a message

@@ -123,7 +123,7 @@ export default function MenuPage() {
         
         {categories.length > 0 && (
           <Carousel opts={{ align: "start", loop: true }}>
-            <CarouselContent className="-ml-4 max-w-screen-lg mx-auto">
+            <CarouselContent className="-ml-4 md:max-w-screen-lg mx-auto">
               {categories.map((category: Category) => (
                 <CarouselItem key={category._id} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/5 lg:basis-1/6 xl:basis-1/6">
                   <Card 

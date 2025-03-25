@@ -27,8 +27,115 @@ export default function GuestOrdersView() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [updatedStatus, setUpdatedStatus] = useState<boolean>(false);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // When the order data changes, set up the SSE connection
+  useEffect(() => {
+    // Clean up any existing connections
+    if (eventSourceRef.current) {
+      console.log('Closing existing SSE connection');
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    
+    // If we have an order, set up a new connection
+    if (orderData && orderData._id) {
+      console.log('Setting up SSE connection for guest order', orderData._id);
+      setConnectionStatus('connecting');
+      
+      try {
+        // Connect to the guest-specific SSE endpoint with the order ID
+        const eventSource = new EventSource(`/api/orders/guest-status?orderId=${orderData._id}`);
+        eventSourceRef.current = eventSource;
+        
+        eventSource.onopen = () => {
+          console.log('SSE connection established for guest order');
+          setConnectionStatus('connected');
+        };
+        
+        eventSource.addEventListener('connected', (event) => {
+          console.log('Received connected event:', event.data);
+          setConnectionStatus('connected');
+        });
+        
+        eventSource.addEventListener('order-status-update', (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('Received order status update:', data);
+            
+            // Update the order status
+            setOrderData(prevData => {
+              if (!prevData) return null;
+              return {
+                ...prevData,
+                status: data.newStatus
+              };
+            });
+            
+            // Set highlighting effect
+            setUpdatedStatus(true);
+            
+            // Clear any existing timeout
+            if (highlightTimeoutRef.current) {
+              clearTimeout(highlightTimeoutRef.current);
+            }
+            
+            // Remove highlight after 3 seconds
+            highlightTimeoutRef.current = setTimeout(() => {
+              setUpdatedStatus(false);
+              highlightTimeoutRef.current = null;
+            }, 3000);
+            
+            // Show notification (you could add a toast mechanism here)
+            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification('Order Status Update', {
+                body: `Your order status has been updated to ${data.newStatus}`
+              });
+            }
+          } catch (error) {
+            console.error('Error processing order status update:', error);
+          }
+        });
+        
+        eventSource.onerror = (error) => {
+          console.error('SSE connection error:', error);
+          setConnectionStatus('disconnected');
+          
+          // Retry connection after 5 seconds
+          setTimeout(() => {
+            if (eventSourceRef.current === eventSource) {
+              eventSourceRef.current = null;
+              // Only try to reconnect if we still have the same order
+              if (orderData && orderData._id) {
+                console.log('Attempting to reconnect...');
+                // The effect will run again with the current order
+                setConnectionStatus('connecting');
+              }
+            }
+          }, 5000);
+        };
+      } catch (error) {
+        console.error('Error setting up SSE connection:', error);
+        setConnectionStatus('disconnected');
+      }
+    }
+    
+    // Clean up on unmount or when the order changes
+    return () => {
+      if (eventSourceRef.current) {
+        console.log('Closing SSE connection on cleanup');
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, [orderData?.status, orderData?._id]); // Only re-run when order ID or status changes
 
   // Listen for order status updates via BroadcastChannel
   useEffect(() => {
@@ -154,7 +261,27 @@ export default function GuestOrdersView() {
       {orderData && (
         <div className={`bg-slate-800 p-6 rounded-lg shadow-md text-white transition-all duration-300 
           ${updatedStatus ? 'ring-2 ring-yellow-400' : ''}`}>
-          <h2 className="text-xl font-semibold mb-4">Order Details</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Order Details</h2>
+            
+            {/* Connection status indicator */}
+            {connectionStatus === 'connected' ? (
+              <span className="text-xs text-green-400 flex items-center">
+                <span className="h-2 w-2 bg-green-500 rounded-full inline-block mr-2"></span>
+                Live updates active
+              </span>
+            ) : connectionStatus === 'connecting' ? (
+              <span className="text-xs text-yellow-400 flex items-center">
+                <span className="h-2 w-2 bg-yellow-500 rounded-full inline-block mr-2"></span>
+                Connecting...
+              </span>
+            ) : (
+              <span className="text-xs text-red-400 flex items-center">
+                <span className="h-2 w-2 bg-red-500 rounded-full inline-block mr-2"></span>
+                Disconnected
+              </span>
+            )}
+          </div>
           
           <div className="mb-6">
             <p className="text-white-600"><span className="font-medium">Order ID:</span> {orderData._id}</p>
