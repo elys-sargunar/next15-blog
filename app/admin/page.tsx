@@ -320,8 +320,11 @@ export default function AdminDashboard() {
   // Clean up all timers when component unmounts
   useEffect(() => {
     return () => {
-      if (timerRefs.current.highlightTimer) clearTimeout(timerRefs.current.highlightTimer);
-      if (timerRefs.current.toastTimer) clearTimeout(timerRefs.current.toastTimer);
+      // Capture the current timerRefs values to avoid stale references
+      const { highlightTimer, toastTimer } = timerRefs.current;
+      
+      if (highlightTimer) clearTimeout(highlightTimer);
+      if (toastTimer) clearTimeout(toastTimer);
     };
   }, []);
 

@@ -1,13 +1,11 @@
 "use client"
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 // This component handles real-time order status updates for logged-in users
 export default function OrderStatusListener() {
   const [connected, setConnected] = useState(false);
-  const [lastEvent, setLastEvent] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   
   // Add a timestamp state for order polling
@@ -135,7 +133,6 @@ export default function OrderStatusListener() {
         try {
           const data = JSON.parse(event.data);
           console.log('CLIENT: Received connected event:', data);
-          setLastEvent(`Connected with ID: ${data.clientId || 'unknown'}, User: ${data.userId || 'unknown'}`);
           lastPingTimeRef.current = Date.now(); // Mark last activity
           
           // Force refresh to update UI
@@ -163,7 +160,6 @@ export default function OrderStatusListener() {
         try {
           const data = JSON.parse(event.data);
           console.log('CLIENT: Received test event:', data);
-          setLastEvent(`Test: ${data.message || 'unknown'}`);
           lastPingTimeRef.current = Date.now(); // Mark last activity
         } catch (e) {
           console.error('CLIENT: Error parsing test event:', e);
@@ -175,7 +171,7 @@ export default function OrderStatusListener() {
         console.log('CLIENT: Received reconnect request from server');
         try {
           const data = JSON.parse(event.data);
-          setLastEvent(`Reconnect requested: ${data.message || 'unknown'}`);
+          console.log('CLIENT: Reconnect requested:', data.message || 'unknown');
           
           // Close the current connection
           eventSource.close();
@@ -200,7 +196,7 @@ export default function OrderStatusListener() {
           lastPingTimeRef.current = Date.now();
           
           // Set last event for the UI
-          setLastEvent(`Order ${data.orderId} status changed: ${data.oldStatus || 'New'} -> ${data.newStatus}`);
+          console.log('CLIENT: Order status updated:', data.oldStatus || 'New', '->', data.newStatus);
           
           // Broadcast the update to other components
           const statusUpdateChannel = new BroadcastChannel('order-status-updates');
@@ -230,7 +226,7 @@ export default function OrderStatusListener() {
         console.error('CLIENT: EventSource error:', error);
         setConnected(false);
         setConnectionStatus('disconnected');
-        setError('Connection error. Attempting to reconnect...');
+        console.error('CLIENT: Connection error. Attempting to reconnect...');
         
         // Broadcast disconnected status
         if (broadcastChannelRef.current) {
@@ -254,8 +250,7 @@ export default function OrderStatusListener() {
             setupSSE();
           }, backoffTime);
         } else {
-          setError(`Failed to reconnect after ${maxReconnectAttempts} attempts. Please refresh the page.`);
-          console.error(`CLIENT: Max reconnect attempts (${maxReconnectAttempts}) reached.`);
+          console.error('CLIENT: Max reconnect attempts reached.');
           
           // Stop the ping checker
           if (pingCheckIntervalRef.current) {
@@ -346,7 +341,7 @@ export default function OrderStatusListener() {
         clearInterval(pingCheckIntervalRef.current);
       }
     };
-  }, [router]);
+  }, [router, connected]);
   
   // Play notification sound for status updates
   const playNotificationSound = () => {
