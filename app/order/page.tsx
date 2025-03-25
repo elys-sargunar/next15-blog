@@ -84,7 +84,7 @@ export default function OrderPage() {
       }
 
       // Store the order ID for reference
-      setOrderId(result.orderId!);
+      setOrderId(result.order._id.toString());
       
       // Since the API response no longer includes totalPoints, use the calculated value
       setEarnedPoints(totalPoints);
