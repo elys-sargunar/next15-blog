@@ -55,103 +55,114 @@ interface OrderResponse {
  * Places a new order
  */
 export async function placeOrder(formData: FormData) {
+  'use server';
+  
+  console.log("SERVER: Starting placeOrder function");
+  
   try {
-    // Get the authenticated user
+    // Check if user is authenticated
     const authUser = await getAuthUser();
+    console.log(`SERVER: User authentication check: ${authUser ? 'Authenticated' : 'Not authenticated'}`);
     
-    // Reject orders from unauthenticated users
-    if (!authUser || !authUser.userId) {
-      return {
-        success: false,
-        message: "You must be logged in to place an order"
-      };
+    if (!authUser) {
+      console.log("SERVER: Order placement rejected - user not authenticated");
+      return { error: "You must be logged in to place an order." };
     }
     
-    // Parse the form data
+    // Get user data from database
+    const usersCollection = await getCollection("users");
+    const userData = await usersCollection?.findOne({ 
+      _id: ObjectId.createFromHexString(authUser.userId as string) 
+    });
+    console.log(`SERVER: Retrieved user data for ${authUser.userId}`);
+
+    // Parse form data
     const cartItems = JSON.parse(formData.get('cartItems') as string);
-    const totalPrice = parseInt(formData.get('totalPrice') as string);
-    const totalPoints = parseInt(formData.get('totalPoints') as string);
+    const subTotal = parseFloat(formData.get('subTotal') as string);
+    const tax = parseFloat(formData.get('tax') as string);
+    const total = parseFloat(formData.get('total') as string);
+    const pointsEarned = parseInt(formData.get('pointsEarned') as string);
     
-    // Create order document with required userId
+    console.log(`SERVER: Parsed order data - ${cartItems.length} items, total: ${total}, points: ${pointsEarned}`);
+
+    // Create order object
     const order = {
-      userId: ObjectId.createFromHexString(authUser.userId as string), // Convert string ID to ObjectId
-      userEmail: formData.get('email') || null,
+      userId: authUser.userId,
+      userEmail: userData?.email || '',
+      userName: userData?.name || '',
       items: cartItems,
-      totalPrice,
-      totalPoints,
-      status: 'pending',
+      subTotal,
+      tax,
+      total,
+      pointsEarned,
+      status: "pending",
       createdAt: new Date(),
-      lastUpdated: new Date(), // Add lastUpdated field for sorting
+      updatedAt: new Date()
     };
     
-    // Insert order into db
-    const ordersCollection = await getCollection("orders");
-    if (!ordersCollection) {
-      throw new Error("Failed to connect to database");
+    console.log("SERVER: Order object created, attempting database insert");
+
+    // Insert into database
+    const collection = await getCollection("orders");
+    const result = await collection?.insertOne(order);
+    
+    if (!result?.insertedId) {
+      console.error("SERVER: Failed to insert order into database");
+      return { error: "Failed to create order. Please try again." };
     }
     
-    const result = await ordersCollection.insertOne(order);
+    // Get the inserted order with its ID
+    const orderWithId = {
+      ...order,
+      _id: result.insertedId
+    };
     
-    if (result.acknowledged) {
-      console.log(`ORDERS: New order created with ID ${result.insertedId}`);
-      
-      // Send notification to all connected admin clients about the new order
-      try {
-        console.log(`ORDERS: Broadcasting new order notification to admins`);
-        
-        // Create a serialized order object for the event
-        const serializedOrder = {
-          _id: result.insertedId.toString(),
-          userId: authUser.userId?.toString(),
-          userEmail: order.userEmail,
-          items: order.items,
-          totalPrice: order.totalPrice,
-          totalPoints: order.totalPoints,
-          status: order.status,
-          createdAt: order.createdAt.toISOString(),
-          lastUpdated: order.lastUpdated.toISOString()
-        };
-        
-        // Notify admins with full order details
-        await sendEventToAdmins("new-order", { order: serializedOrder });
-        console.log(`ORDERS: Successfully sent admin notifications for new order ${result.insertedId}`);
-      } catch (notifyError) {
-        console.error(`ORDERS: Error notifying admins about new order:`, notifyError);
-        // Continue even if admin notification fails
-      }
-      
-      // Notify the user about their new order
-      try {
-        console.log(`ORDERS: Sending order confirmation to user ${authUser.userId}`);
-        await broadcastOrderStatusUpdate(
-          authUser.userId as string, 
-          result.insertedId.toString(),
-          "", // No old status for new orders
-          "pending" // Initial status is pending
-        );
-        console.log(`ORDERS: Successfully sent order confirmation to user ${authUser.userId}`);
-      } catch (userNotifyError) {
-        console.error(`ORDERS: Error notifying user about new order:`, userNotifyError);
-        // Continue even if user notification fails
-      }
-      
-      // Revalidate relevant paths
-      revalidatePath('/my-orders');
-      revalidatePath('/admin');
-      
-      return {
-        success: true,
-        message: "Order placed successfully",
-        orderId: result.insertedId.toString()
-      };
-    } else {
-      throw new Error("Failed to place order");
+    console.log(`SERVER: Order successfully created with ID ${result.insertedId}`);
+    
+    // Notify admin clients about the new order
+    console.log("SERVER: Attempting to notify admin clients about new order");
+    try {
+      await sendEventToAdmins("new-order", {
+        type: "new-order",
+        order: orderWithId
+      });
+      console.log("SERVER: Successfully sent new order notification to admins");
+    } catch (notifyError) {
+      console.error("SERVER: Failed to notify admins about new order:", notifyError);
+      // Continue even if notification fails
     }
-  } catch (error) {
-    console.error("Error placing order:", error);
+    
+    // Send confirmation to the user
+    console.log(`SERVER: Attempting to notify user ${authUser.userId} about their new order`);
+    try {
+      await broadcastOrderStatusUpdate(
+        authUser.userId as string,
+        result.insertedId.toString(),
+        "",  // No previous status for new order
+        "pending"  // Initial status
+      );
+      console.log(`SERVER: Successfully sent order confirmation to user ${authUser.userId}`);
+    } catch (userNotifyError) {
+      console.error("SERVER: Failed to notify user about new order:", userNotifyError);
+      // Continue even if notification fails
+    }
+    
+    // Revalidate paths
+    revalidatePath('/my-orders');
+    revalidatePath('/order');
+    
+    console.log("SERVER: Order placement complete, returning success");
+    
+    // Return success with the created order
     return {
-      success: false,
-      message: error instanceof Error ? error.message : "An unknown error occurred"
+      success: true,
+      message: "Order placed successfully!",
+      order: orderWithId
+    };
+  } catch (error) {
+    console.error("SERVER: Error in placeOrder function:", error);
+    return {
+      error: "An unexpected error occurred. Please try again."
     };
   }
 }

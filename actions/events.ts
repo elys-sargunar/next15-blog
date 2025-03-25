@@ -41,10 +41,12 @@ export async function sendEventToAdmins(event: string, data: OrderEventData): Pr
   const eventString = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   const failedClients: string[] = [];
 
-  console.log(`EVENTS: Broadcasting "${event}" event to ${adminClients.size} admin clients`);
+  console.log(`EVENTS: Broadcasting "${event}" event to ${adminClients.size} admin clients - ${new Date().toISOString()}`);
+  console.log(`EVENTS: Admin clients map contents: ${[...adminClients.keys()].join(', ') || 'No clients'}`);
   
   if (adminClients.size === 0) {
     console.log(`EVENTS: No admin clients connected to receive "${event}" event`);
+    console.log(`EVENTS: Event data that would have been sent:`, JSON.stringify(data).substring(0, 200) + '...');
     return;
   }
   
@@ -54,12 +56,18 @@ export async function sendEventToAdmins(event: string, data: OrderEventData): Pr
   adminClients.forEach((controller, clientId) => {
     try {
       // Check if the connection is marked as closed or errored
-      if (connectionStatus.get(clientId) !== 'active') {
+      const status = connectionStatus.get(clientId);
+      console.log(`EVENTS: Admin client ${clientId} has status: ${status || 'unknown'}`);
+      
+      if (status !== 'active') {
         console.log(`EVENTS: Skipping admin client ${clientId} - connection not active`);
         failedClients.push(clientId);
         return;
       }
 
+      // Log before trying to send
+      console.log(`EVENTS: Attempting to send "${event}" to admin client ${clientId}`);
+      
       controller.enqueue(eventString);
       successCount++;
       console.log(`EVENTS: Successfully sent "${event}" to admin client ${clientId}`);
@@ -83,6 +91,7 @@ export async function sendEventToAdmins(event: string, data: OrderEventData): Pr
   }
 
   console.log(`EVENTS: Successfully sent "${event}" to ${successCount} admin clients, removed ${failedClients.length} failed clients`);
+  console.log(`EVENTS: Admin clients remaining after cleanup: ${adminClients.size}`);
 }
 
 /**

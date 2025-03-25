@@ -14,6 +14,17 @@ export async function GET(request: NextRequest) {
   
   try {
     console.log('API: Admin SSE connection request received');
+    console.log(`API: Request URL: ${request.url}`);
+    
+    // Log device info from user agent
+    const userAgent = request.headers.get('user-agent') || 'Unknown';
+    console.log(`API: User agent: ${userAgent}`);
+    const isMobile = /mobile|android|iphone|ipad|ipod/i.test(userAgent.toLowerCase());
+    console.log(`API: Device type: ${isMobile ? 'Mobile' : 'Desktop/Other'}`);
+    
+    // Log all request headers
+    const headersObj = Object.fromEntries(request.headers.entries());
+    console.log(`API: Request headers:`, JSON.stringify(headersObj));
     
     // Only allow admins to connect
     const authUser = await getAuthUser();
@@ -41,12 +52,11 @@ export async function GET(request: NextRequest) {
     }
     
     const userId = authUser.userId as string;
-    console.log(`API: Admin SSE connection request received from admin user ${userId}`);
-    console.log(`API: Request headers:`, JSON.stringify(Object.fromEntries(request.headers.entries())));
+    console.log(`API: Admin SSE connection request approved for admin user ${userId}`);
     
     // Create a unique ID for this connection
     clientId = `admin-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-    console.log(`API: Generated admin client ID ${clientId}`);
+    console.log(`API: Generated admin client ID ${clientId} for ${isMobile ? 'mobile' : 'desktop'} device`);
     
     // Create abort controller to handle cancellation
     abortController = new AbortController();
@@ -61,8 +71,8 @@ export async function GET(request: NextRequest) {
           addAdminClient(clientId, controller);
           
           // Send initial connection event
-          controller.enqueue(`event: connected\ndata: {"clientId":"${clientId}","isAdmin":true,"userId":"${userId}"}\n\n`);
-          console.log(`API: Admin client ${clientId} connected and registered for notifications`);
+          controller.enqueue(`event: connected\ndata: {"clientId":"${clientId}","isAdmin":true,"userId":"${userId}","isMobile":${isMobile},"timestamp":"${new Date().toISOString()}"}\n\n`);
+          console.log(`API: Admin client ${clientId} connected and registered for notifications (${isMobile ? 'mobile' : 'desktop'})`);
           
           // If the abort controller is triggered, close the connection
           abortController?.signal.addEventListener('abort', () => {
@@ -80,7 +90,7 @@ export async function GET(request: NextRequest) {
             isConnectionValid(clientId).then(isValid => {
               if (isValid) {
                 try {
-                  controller.enqueue(`event: test\ndata: {"message":"Admin connection test"}\n\n`);
+                  controller.enqueue(`event: test\ndata: {"message":"Admin connection test","clientId":"${clientId}","timestamp":"${new Date().toISOString()}"}\n\n`);
                   console.log(`API: Sent test event to admin client ${clientId}`);
                 } catch (e) {
                   console.error(`API: Failed to send test event to admin client ${clientId}:`, e);
@@ -99,7 +109,7 @@ export async function GET(request: NextRequest) {
               if (isValid) {
                 try {
                   controller.enqueue(": keepalive\n\n");
-                  console.log(`API: Sent keepalive to admin client ${clientId}`);
+                  console.log(`API: Sent keepalive to admin client ${clientId} at ${new Date().toISOString()}`);
                 } catch (e) {
                   // Connection was closed
                   clearInterval(interval);
@@ -147,19 +157,22 @@ export async function GET(request: NextRequest) {
       },
       cancel() {
         // Remove this client when they disconnect
-        console.log(`API: Admin client ${clientId} disconnected`);
+        console.log(`API: Admin client ${clientId} disconnected at ${new Date().toISOString()}`);
         removeAdminClient(clientId);
       }
     });
     
-    // Return the SSE response
+    // Return the SSE response with CORS headers
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform, must-revalidate',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no', // Prevents buffering in Nginx
-        'Transfer-Encoding': 'chunked'
+        'Transfer-Encoding': 'chunked',
+        'Access-Control-Allow-Origin': '*', // Allow any origin for CORS
+        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
       },
     });
   } catch (error) {
