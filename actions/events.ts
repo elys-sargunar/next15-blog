@@ -26,9 +26,6 @@ const adminClients: Map<string, StreamController> = new Map();
 // For user clients - userId to Map of clientId to controller
 const userClients: Map<string, Map<string, StreamController>> = new Map();
 
-// For guest clients - orderId to Map of clientId to controller (no longer using but keeping for reference)
-const guestClients: Map<string, Map<string, StreamController>> = new Map();
-
 // Connection timestamps to track when clients connected
 const connectionTimestamps: Map<string, number> = new Map();
 

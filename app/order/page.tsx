@@ -2,8 +2,9 @@
 
 import { useCart } from "@/lib/CartContext";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { placeOrder } from "@/actions/orders";
+import { getUserProfile } from "@/actions/auth";
 
 export default function OrderPage() {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
@@ -12,6 +13,29 @@ export default function OrderPage() {
   const [orderError, setOrderError] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [earnedPoints, setEarnedPoints] = useState<number | null>(null);
+  const [authUser, setAuthUser] = useState<{ userId: string } | null>(null);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+
+  // Check authentication on component mount
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const profileResult = await getUserProfile();
+        if (profileResult.success && profileResult.user) {
+          setAuthUser(profileResult.user as { userId: string });
+        } else {
+          setAuthUser(null);
+        }
+      } catch (error) {
+        console.error("Error checking authentication:", error);
+        setAuthUser(null);
+      } finally {
+        setIsLoadingAuth(false);
+      }
+    }
+    
+    checkAuth();
+  }, []);
 
   // Calculate the total points for items in the cart
   const totalPoints = items.reduce(
@@ -19,29 +43,38 @@ export default function OrderPage() {
     0
   );
 
+  // Handle placing an order
   const handlePlaceOrder = async () => {
-    if (isSubmitting) return;
-    
-    setIsSubmitting(true);
-    setOrderError(null);
-    
     try {
-      // Create FormData object for the order
+      setIsSubmitting(true);
+      
+      if (!authUser?.userId) {
+        // Must be logged in to place an order
+        setOrderError("You must be logged in to place an order");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Convert cart items to order items for the API
+      const orderItems = items.map(cartItem => {
+        const item = cartItem.item;
+        const itemId = typeof item._id === 'string' ? item._id : item._id.toString();
+        
+        return {
+          id: itemId,
+          name: item.name,
+          price: item.price,
+          points: item.points || 0,
+          quantity: cartItem.quantity
+        };
+      });
+      
+      // Create form data to submit
       const formData = new FormData();
-      
-      // Add cart items as JSON string
-      const cartItems = items.map(cartItem => ({
-        id: typeof cartItem.item._id === 'string' ? cartItem.item._id : cartItem.item._id.toString(),
-        name: cartItem.item.name,
-        price: cartItem.item.price,
-        points: cartItem.item.points || 0,
-        quantity: cartItem.quantity
-      }));
-      
-      formData.append('cartItems', JSON.stringify(cartItems));
+      formData.append('cartItems', JSON.stringify(orderItems));
       formData.append('totalPrice', totalPrice.toString());
       formData.append('totalPoints', totalPoints.toString());
-      formData.append('email', ''); // Optional email for guest users
+      formData.append('email', authUser.userId); // User ID as reference for logged-in users
       
       // Call the server action with FormData
       const result = await placeOrder(formData);
@@ -102,7 +135,11 @@ export default function OrderPage() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <h1 className="text-3xl font-bold mb-8">Your Order</h1>
 
-      {items.length === 0 ? (
+      {isLoadingAuth ? (
+        <div className="text-center py-12">
+          <p className="text-xl text-gray-500 mb-6">Loading...</p>
+        </div>
+      ) : items.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-xl text-gray-500 mb-6">Your cart is empty</p>
           <Link 
@@ -110,6 +147,22 @@ export default function OrderPage() {
             className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
           >
             Browse Menu
+          </Link>
+        </div>
+      ) : !authUser ? (
+        <div className="text-center py-12 bg-yellow-50 border border-yellow-200 rounded-lg p-8">
+          <p className="text-xl text-yellow-700 mb-6">You must be logged in to place an order</p>
+          <Link 
+            href="/login?redirect=/order" 
+            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition mr-4"
+          >
+            Login
+          </Link>
+          <Link 
+            href="/register?redirect=/order" 
+            className="inline-block px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+          >
+            Register
           </Link>
         </div>
       ) : (
@@ -201,39 +254,28 @@ export default function OrderPage() {
             </table>
           </div>
 
-          {orderError && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">
-              {orderError}
-            </div>
-          )}
-
-          <div className="flex justify-between">
+          <div className="mt-6 flex justify-between items-center">
             <button
-              onClick={clearCart}
-              className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
+              onClick={() => clearCart()}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+              disabled={isSubmitting}
             >
               Clear Cart
             </button>
-            
-            <div className="flex space-x-4">
-              <Link
-                href="/menu"
-                className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
-              >
-                Continue Shopping
-              </Link>
-              
-              <button
-                onClick={handlePlaceOrder}
-                disabled={isSubmitting}
-                className={`px-6 py-3 rounded-lg text-white transition ${
-                  isSubmitting ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                }`}
-              >
-                {isSubmitting ? "Processing order..." : "Place Order"}
-              </button>
-            </div>
+            <button
+              onClick={handlePlaceOrder}
+              className={`px-6 py-3 bg-green-600 text-white rounded hover:bg-green-700 transition ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Processing...' : 'Place Order'}
+            </button>
           </div>
+          
+          {orderError && (
+            <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
+              {orderError}
+            </div>
+          )}
         </>
       )}
     </div>

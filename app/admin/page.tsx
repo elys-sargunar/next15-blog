@@ -486,7 +486,7 @@ export default function AdminDashboard() {
                         {order._id.substring(0, 10)}...
                       </td>
                       <td className={`py-2 px-4 ${selectedOrderId === order._id ? "text-white" : "text-slate-300"}`}>
-                        {order.userId ? order.userId.substring(0, 8) : "Guest"}
+                        {order.userId ? order.userId.substring(0, 8) : "Unknown User"}
                       </td>
                       <td className={`py-2 px-4 ${selectedOrderId === order._id ? "text-white" : "text-slate-300"}`}>
                         {new Date(order.createdAt).toLocaleDateString("en-GB")} - {new Date(order.createdAt).toLocaleTimeString("en-GB")}
@@ -535,7 +535,7 @@ export default function AdminDashboard() {
             
             <div className="mb-6">
               <p className="text-slate-300"><span className="font-medium">Order ID:</span> {selectedOrder._id}</p>
-              <p className="text-slate-300"><span className="font-medium">User ID:</span> {selectedOrder.userId || "Guest Order"}</p>
+              <p className="text-slate-300"><span className="font-medium">User ID:</span> {selectedOrder.userId || "Unknown"}</p>
               <p className="text-slate-300"><span className="font-medium">Date:</span> {new Date(selectedOrder.createdAt).toLocaleString()}</p>
               <p className="text-slate-300"><span className="font-medium">Status:</span> {selectedOrder.status || "pending"}</p>
               <p className="text-slate-300"><span className="font-medium">Total Price:</span> £{(selectedOrder.totalPrice / 100).toFixed(2)}</p>
