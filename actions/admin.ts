@@ -191,7 +191,8 @@ export async function getAdminOrders() {
     
     // Fetch all orders for the admin
     const ordersCollection = await getCollection("orders");
-    const orders = await ordersCollection?.find({}).toArray();
+    // Sort orders by createdAt in descending order (newest first)
+    const orders = await ordersCollection?.find({}).sort({ createdAt: -1 }).toArray();
     
     // Transform MongoDB documents to ensure they match the expected Order type structure
     const serializedOrders = orders ? orders.map(order => ({
@@ -203,6 +204,9 @@ export async function getAdminOrders() {
       status: typeof order.status === 'string' ? order.status : 'pending',
       createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : 
                  typeof order.createdAt === 'string' ? order.createdAt : new Date().toISOString(),
+      lastUpdated: order.lastUpdated instanceof Date ? order.lastUpdated.toISOString() :
+                  typeof order.lastUpdated === 'string' ? order.lastUpdated :
+                  (order.createdAt instanceof Date ? order.createdAt.toISOString() : new Date().toISOString()),
       customerInfo: order.customerInfo || { name: '', email: '', address: '' },
     })) : [];
     

@@ -164,7 +164,11 @@ export async function getUserProfile() {
         ...order,
         _id: order._id.toString(),
         // Handle potential ObjectId types in nested objects
-        userId: order.userId ? order.userId.toString() : null
+        userId: order.userId ? order.userId.toString() : null,
+        // Ensure lastUpdated is present for sorting functionality
+        lastUpdated: order.lastUpdated ? 
+                     (order.lastUpdated instanceof Date ? order.lastUpdated.toISOString() : order.lastUpdated) : 
+                     (order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt)
       })) : []
     };
     

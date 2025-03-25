@@ -292,9 +292,16 @@ export async function deleteOrder(id: string){
 }
 
 export async function getOrdersByUserId(userId: string){
-    const ordersCollection = await getCollection("orders")
-    const orders = await ordersCollection?.find({userId: new ObjectId(userId)}).toArray()
-    return orders
+    const ordersCollection = await getCollection("orders");
+    
+    // Find orders and sort by createdAt in descending order (newest first)
+    const orders = await ordersCollection?.find(
+        {userId: new ObjectId(userId)}
+    )
+    .sort({ createdAt: -1 }) // Sort newest first
+    .toArray();
+    
+    return orders;
 }   
 
 export async function getOrdersByTableNumber(tableNumber: number){
