@@ -7,136 +7,102 @@ import { useRouter } from 'next/navigation';
 export default function OrderStatusListener() {
   const [connected, setConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<string | null>(null);
-  const [connectionAttempt, setConnectionAttempt] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  
+  // Add a timestamp state for order polling
+  const [lastPollTime, setLastPollTime] = useState<string>(new Date().toISOString());
+  
+  // Refs for timers and event source
   const eventSourceRef = useRef<EventSource | null>(null);
-  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPingTimeRef = useRef<number>(Date.now());
+  const pingCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
   const maxReconnectAttempts = 5;
+  
+  // Add polling interval ref
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   const router = useRouter();
+  
+  // Channel for broadcasting status to other components like the indicator
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
-  const statusUpdateChannelRef = useRef<BroadcastChannel | null>(null);
-  const lastPingTimeRef = useRef<number | null>(null);
-  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Function to create the event source - extracted for reuse
-  const createEventSource = useCallback(() => {
-    try {
-      console.log('CLIENT: Creating SSE connection (attempt ' + (reconnectAttemptsRef.current + 1) + ')');
-      
-      // Force close any existing connection
-      if (eventSourceRef.current) {
-        console.log('CLIENT: Closing existing connection before creating a new one');
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-      
-      // Create a new EventSource connection
-      const eventSource = new EventSource('/api/orders/status-events', { withCredentials: true });
-      eventSourceRef.current = eventSource;
-      
-      // Reset ping timer on new connection
-      lastPingTimeRef.current = Date.now();
-      
-      return eventSource;
-    } catch (error) {
-      console.error('CLIENT: Error creating EventSource:', error);
-      return null;
-    }
-  }, []);
-
-  // Function to handle health checks for the connection
-  const setupConnectionHealthCheck = useCallback(() => {
-    // Clear any existing interval
-    if (pingIntervalRef.current) {
-      clearInterval(pingIntervalRef.current);
-    }
-    
-    // Set up an interval to check if we've received pings
-    pingIntervalRef.current = setInterval(() => {
-      // If we haven't received a ping in 30 seconds, connection might be dead
-      const now = Date.now();
-      const lastPing = lastPingTimeRef.current || 0;
-      
-      if (connected && now - lastPing > 30000) { // 30 seconds
-        console.log('CLIENT: No ping received in last 30 seconds, connection may be stale');
-        setConnected(false);
-        setLastEvent('Connection stale - attempting reconnect');
-        
-        // Force reconnect
-        if (eventSourceRef.current) {
-          eventSourceRef.current.close();
-          eventSourceRef.current = null;
-          
-          // Trigger reconnect by incrementing connection attempt
-          setConnectionAttempt(prev => prev + 1);
-        }
-      }
-    }, 10000); // Check every 10 seconds
-    
-    // Return cleanup function
-    return () => {
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-      }
-    };
-  }, [connected]);
-
-  // Broadcast connection status to other components
+  
+  // Expose connection status to other components
   useEffect(() => {
+    // Don't run on server
     if (typeof window === 'undefined') return;
     
-    console.log('CLIENT: Setting up broadcast channels');
-    
-    // Create broadcast channels
+    // Create a broadcast channel to communicate with the OrderStatusIndicator
     const channel = new BroadcastChannel('order-status-connection');
     broadcastChannelRef.current = channel;
     
-    const statusChannel = new BroadcastChannel('order-status-updates');
-    statusUpdateChannelRef.current = statusChannel;
-    
-    // Listen for status requests
+    // Listen for status requests from indicators
     channel.addEventListener('message', (event) => {
-      if (event.data?.type === 'request-status') {
-        console.log('CLIENT: Received request for connection status, broadcasting current status');
-        channel.postMessage({ 
-          type: 'connection-status', 
-          status: connected ? 'connected' : 'disconnected',
-          lastEvent,
-          reconnectAttempts: reconnectAttemptsRef.current
+      if (event.data && event.data.type === 'request-status') {
+        // Send current status
+        channel.postMessage({
+          type: 'connection-status',
+          status: connectionStatus
         });
       }
     });
     
-    // Broadcast initial status
-    channel.postMessage({ 
-      type: 'connection-status', 
-      status: 'initializing',
-      lastEvent: null
+    // Initial broadcast
+    channel.postMessage({
+      type: 'connection-status',
+      status: connectionStatus
     });
     
-    // Set up health check
-    const cleanupHealthCheck = setupConnectionHealthCheck();
-    
+    // Cleanup
     return () => {
-      console.log('CLIENT: Cleaning up broadcast channels');
       channel.close();
-      statusChannel.close();
-      cleanupHealthCheck();
     };
-  }, [setupConnectionHealthCheck]);
+  }, [connectionStatus]);
   
-  // Broadcast status updates when connected state changes
+  // Setup polling for order updates via the monitor endpoint
   useEffect(() => {
-    if (broadcastChannelRef.current) {
-      console.log(`CLIENT: Broadcasting connection status change: ${connected ? 'connected' : 'disconnected'}`);
-      broadcastChannelRef.current.postMessage({ 
-        type: 'connection-status', 
-        status: connected ? 'connected' : 'disconnected',
-        lastEvent,
-        reconnectAttempts: reconnectAttemptsRef.current
-      });
+    // Don't run on server
+    if (typeof window === 'undefined') return;
+    
+    async function pollOrderUpdates() {
+      try {
+        const response = await fetch(`/api/orders/monitor?since=${encodeURIComponent(lastPollTime)}`);
+        if (!response.ok) {
+          console.error('CLIENT: Order monitor poll failed:', response.statusText);
+          return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Update timestamp for next poll
+          setLastPollTime(data.timestamp);
+          
+          if (data.newOrders > 0 || data.updatedOrders > 0) {
+            console.log(`CLIENT: Poll found ${data.newOrders} new orders and ${data.updatedOrders} updated orders`);
+          }
+        }
+      } catch (error) {
+        console.error('CLIENT: Error polling order updates:', error);
+      }
     }
-  }, [connected, lastEvent]);
-
+    
+    // Poll every 30 seconds
+    pollIntervalRef.current = setInterval(pollOrderUpdates, 30000);
+    
+    // Initial poll
+    pollOrderUpdates();
+    
+    // Cleanup
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [lastPollTime]);
+  
   // Setup EventSource connection and event listeners
   useEffect(() => {
     // Don't run on server
@@ -151,8 +117,17 @@ export default function OrderStatusListener() {
       eventSource.onopen = () => {
         console.log('CLIENT: SSE connection established');
         setConnected(true);
+        setConnectionStatus('connected');
         lastPingTimeRef.current = Date.now(); // Mark connection time
         reconnectAttemptsRef.current = 0; // Reset reconnect counter
+        
+        // Broadcast connection status to indicator components
+        if (broadcastChannelRef.current) {
+          broadcastChannelRef.current.postMessage({
+            type: 'connection-status',
+            status: 'connected'
+          });
+        }
       };
       
       // Listen for the initial connected event
@@ -197,135 +172,181 @@ export default function OrderStatusListener() {
       
       // Listen for reconnect events (server requesting reconnection)
       eventSource.addEventListener('reconnect', (event) => {
+        console.log('CLIENT: Received reconnect request from server');
         try {
           const data = JSON.parse(event.data);
-          console.log('CLIENT: Server requested reconnect:', data);
-          setLastEvent(`Reconnect requested: ${data.message || 'Server requested reconnect'}`);
+          setLastEvent(`Reconnect requested: ${data.message || 'unknown'}`);
           
-          // Close current connection
+          // Close the current connection
           eventSource.close();
           
-          // Trigger reconnect with a small delay
+          // Attempt to reconnect after a short delay
           setTimeout(() => {
-            setConnectionAttempt(prev => prev + 1);
+            console.log('CLIENT: Reconnecting as requested by server...');
+            setupSSE();
           }, 1000);
         } catch (e) {
           console.error('CLIENT: Error parsing reconnect event:', e);
         }
       });
       
-      // Handle order status updates
+      // Listen for order-status-update events
       eventSource.addEventListener('order-status-update', (event) => {
         try {
           const data = JSON.parse(event.data);
-          const { orderId, oldStatus, newStatus, userId } = data;
+          console.log('CLIENT: Received order status update:', data);
           
-          console.log(`CLIENT: Received order status update:`, data);
-          setLastEvent(`Status update: Order ${orderId.substring(0, 8)}... -> ${newStatus}`);
-          lastPingTimeRef.current = Date.now(); // Mark last activity
+          // Update last activity time
+          lastPingTimeRef.current = Date.now();
           
-          // Broadcast to other components - CRITICAL PART for notification flow
-          if (statusUpdateChannelRef.current) {
-            console.log(`CLIENT: Broadcasting status update to other components via BroadcastChannel`);
-            statusUpdateChannelRef.current.postMessage({
-              type: 'status-update',
-              orderId,
-              oldStatus,
-              newStatus,
-              userId,
-              timestamp: new Date().toISOString()
-            });
-          } else {
-            console.error('CLIENT: Status update channel is null, cannot broadcast update');
-          }
+          // Set last event for the UI
+          setLastEvent(`Order ${data.orderId} status changed: ${data.oldStatus || 'New'} -> ${data.newStatus}`);
           
-          // Create user-friendly notification
-          let statusMessage = `Your order ${orderId.substring(0, 8)}... `;
-          let statusClass = '';
+          // Broadcast the update to other components
+          const statusUpdateChannel = new BroadcastChannel('order-status-updates');
+          statusUpdateChannel.postMessage({
+            type: 'status-update',
+            ...data
+          });
           
-          switch(newStatus) {
-            case 'accepted':
-              statusMessage += 'has been accepted! Your food is being prepared.';
-              statusClass = 'bg-blue-100 border-blue-400 text-blue-800';
-              break;
-            case 'completed':
-              statusMessage += 'is ready! Enjoy your meal.';
-              statusClass = 'bg-green-100 border-green-400 text-green-800';
-              break;
-            case 'cancelled':
-              statusMessage += 'has been cancelled. Please contact support for assistance.';
-              statusClass = 'bg-red-100 border-red-400 text-red-800';
-              break;
-            default:
-              statusMessage += `status has been updated to ${newStatus}.`;
-              statusClass = 'bg-gray-100 border-gray-400 text-gray-800';
-          }
+          // Close the channel after sending
+          setTimeout(() => {
+            statusUpdateChannel.close();
+          }, 100);
           
-          // Play notification sound
+          // Play notification sound and show toast
           playNotificationSound();
+          showToast(`Order status updated to: ${data.newStatus}`, 'bg-blue-100 border-blue-500');
           
-          // Show toast notification
-          showToast(statusMessage, statusClass);
-          
-          // Refresh page data
+          // Force refresh to update UI
           router.refresh();
-        } catch (error) {
-          console.error('CLIENT: Error processing order status update:', error);
+        } catch (e) {
+          console.error('CLIENT: Error parsing order status update:', e);
         }
       });
       
-      // Handle connection errors
-      eventSource.onerror = (event) => {
-        console.error('CLIENT: SSE connection error:', event);
+      // Handle errors
+      eventSource.onerror = (error) => {
+        console.error('CLIENT: EventSource error:', error);
         setConnected(false);
-        setLastEvent(`Connection error at ${new Date().toISOString()}`);
+        setConnectionStatus('disconnected');
+        setError('Connection error. Attempting to reconnect...');
+        
+        // Broadcast disconnected status
+        if (broadcastChannelRef.current) {
+          broadcastChannelRef.current.postMessage({
+            type: 'connection-status',
+            status: 'disconnected'
+          });
+        }
         
         // Close the connection
         eventSource.close();
-        eventSourceRef.current = null;
         
-        // Implement exponential backoff for reconnection
-        const reconnectDelay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-        
+        // Attempt to reconnect with exponential backoff
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-          console.log(`CLIENT: Reconnecting in ${reconnectDelay/1000} seconds (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})...`);
+          const backoffTime = Math.min(1000 * (2 ** reconnectAttemptsRef.current), 30000);
+          console.log(`CLIENT: Will attempt to reconnect in ${backoffTime}ms (attempt ${reconnectAttemptsRef.current + 1} of ${maxReconnectAttempts})`);
           
           reconnectTimeout = setTimeout(() => {
-            reconnectAttemptsRef.current += 1;
-            setConnectionAttempt(prev => prev + 1);
-          }, reconnectDelay);
+            reconnectAttemptsRef.current++;
+            console.log(`CLIENT: Attempting to reconnect (${reconnectAttemptsRef.current} of ${maxReconnectAttempts})...`);
+            setupSSE();
+          }, backoffTime);
         } else {
-          console.log('CLIENT: Maximum reconnection attempts reached.');
-          setLastEvent('Maximum reconnection attempts reached. Refresh the page to try again.');
+          setError(`Failed to reconnect after ${maxReconnectAttempts} attempts. Please refresh the page.`);
+          console.error(`CLIENT: Max reconnect attempts (${maxReconnectAttempts}) reached.`);
           
-          // Show an error toast
-          showToast(
-            'Lost connection to the server. Please refresh the page to reconnect.',
-            'bg-red-100 border-red-400 text-red-800'
-          );
+          // Stop the ping checker
+          if (pingCheckIntervalRef.current) {
+            clearInterval(pingCheckIntervalRef.current);
+          }
         }
       };
     };
     
-    // Create and set up the EventSource
-    const eventSource = createEventSource();
-    if (eventSource) {
+    // Function to set up the SSE connection
+    const setupSSE = () => {
+      setConnectionStatus('connecting');
+      
+      // Broadcast connecting status
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({
+          type: 'connection-status',
+          status: 'connecting'
+        });
+      }
+      
+      // Close any existing connection
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+      
+      console.log('CLIENT: Creating new EventSource...');
+      const eventSource = new EventSource('/api/orders/status-events');
+      eventSourceRef.current = eventSource;
+      
+      // Setup all event listeners
       setupEventListeners(eventSource);
-    }
+    };
+    
+    // Start the connection
+    setupSSE();
+    
+    // Set up a ping checker to detect stale connections
+    pingCheckIntervalRef.current = setInterval(() => {
+      const lastPingTime = lastPingTimeRef.current;
+      const now = Date.now();
+      const timeSinceLastPing = now - lastPingTime;
+      
+      // If we haven't received a ping in over 2 minutes, the connection is probably stale
+      if (timeSinceLastPing > 120000 && connected) {
+        console.log(`CLIENT: No activity for ${Math.floor(timeSinceLastPing / 1000)}s, reconnecting...`);
+        setConnected(false);
+        setConnectionStatus('disconnected');
+        
+        // Broadcast disconnected status
+        if (broadcastChannelRef.current) {
+          broadcastChannelRef.current.postMessage({
+            type: 'connection-status',
+            status: 'disconnected'
+          });
+        }
+        
+        // Close and reconnect
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+        }
+        
+        // Small delay before reconnecting
+        reconnectTimeoutRef.current = setTimeout(() => {
+          setupSSE();
+        }, 1000);
+      }
+    }, 30000); // Check every 30 seconds
     
     // Cleanup function
     return () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
+      console.log('CLIENT: Cleaning up SSE connection');
       
+      // Close the event source if it exists
       if (eventSourceRef.current) {
-        console.log('CLIENT: Closing SSE connection due to component unmount');
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
+      
+      // Clear any pending timeouts
+      clearTimeout(reconnectTimeout);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      
+      // Clear ping checker interval
+      if (pingCheckIntervalRef.current) {
+        clearInterval(pingCheckIntervalRef.current);
+      }
     };
-  }, [createEventSource, router, connectionAttempt]);
+  }, [router]);
   
   // Play notification sound for status updates
   const playNotificationSound = () => {

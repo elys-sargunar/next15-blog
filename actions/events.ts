@@ -1,5 +1,9 @@
 'use server'
 
+import { getCollection } from '@/lib/db';
+import { ObjectId } from 'mongodb';
+import { ConnectionStatus } from '@/lib/rules';
+
 // Define the type for order event data
 export interface OrderEventData {
   order?: Record<string, unknown>;
@@ -30,10 +34,11 @@ const userClients: Map<string, Map<string, StreamController>> = new Map();
 const connectionTimestamps: Map<string, number> = new Map();
 
 // Connection status tracking
-const connectionStatus: Map<string, 'active' | 'error' | 'closed'> = new Map();
+const connectionStatus: Map<string, ConnectionStatus> = new Map();
 
 /**
  * Sends an event to all connected admin clients
+ * This is used for real-time notifications triggered by MongoDB changes
  * @param event Event name
  * @param data Event data
  */
@@ -42,11 +47,9 @@ export async function sendEventToAdmins(event: string, data: OrderEventData): Pr
   const failedClients: string[] = [];
 
   console.log(`EVENTS: Broadcasting "${event}" event to ${adminClients.size} admin clients - ${new Date().toISOString()}`);
-  console.log(`EVENTS: Admin clients map contents: ${[...adminClients.keys()].join(', ') || 'No clients'}`);
   
   if (adminClients.size === 0) {
     console.log(`EVENTS: No admin clients connected to receive "${event}" event`);
-    console.log(`EVENTS: Event data that would have been sent:`, JSON.stringify(data).substring(0, 200) + '...');
     return;
   }
   
@@ -57,16 +60,12 @@ export async function sendEventToAdmins(event: string, data: OrderEventData): Pr
     try {
       // Check if the connection is marked as closed or errored
       const status = connectionStatus.get(clientId);
-      console.log(`EVENTS: Admin client ${clientId} has status: ${status || 'unknown'}`);
       
       if (status !== 'active') {
         console.log(`EVENTS: Skipping admin client ${clientId} - connection not active`);
         failedClients.push(clientId);
         return;
       }
-
-      // Log before trying to send
-      console.log(`EVENTS: Attempting to send "${event}" to admin client ${clientId}`);
       
       controller.enqueue(eventString);
       successCount++;
@@ -91,11 +90,11 @@ export async function sendEventToAdmins(event: string, data: OrderEventData): Pr
   }
 
   console.log(`EVENTS: Successfully sent "${event}" to ${successCount} admin clients, removed ${failedClients.length} failed clients`);
-  console.log(`EVENTS: Admin clients remaining after cleanup: ${adminClients.size}`);
 }
 
 /**
  * Sends an event to a specific user across all their connected clients
+ * This is used for real-time notifications triggered by MongoDB changes
  * @param userId User ID
  * @param event Event name
  * @param data Event data
@@ -167,7 +166,8 @@ export async function sendEventToUser(userId: string, event: string, data: Statu
 }
 
 /**
- * Broadcast an order status update to the user associated with the order
+ * Send order status update notification to a user
+ * Called when order status is updated in MongoDB
  * @param userId User ID to send update to
  * @param orderId Order ID that was updated
  * @param oldStatus Previous order status
@@ -203,6 +203,39 @@ export async function broadcastOrderStatusUpdate(
 }
 
 /**
+ * Get order details and send to the requester
+ * This is called when a client connects and asks for initial order data
+ * @param orderId The ID of the order to fetch
+ * @param controller The stream controller to send the order details to
+ */
+export async function sendOrderDetails(orderId: string, controller: StreamController): Promise<void> {
+  try {
+    const ordersCollection = await getCollection("orders");
+    const order = await ordersCollection?.findOne({ _id: new ObjectId(orderId) });
+    
+    if (!order) {
+      console.log(`EVENTS: Order ${orderId} not found`);
+      return;
+    }
+    
+    const eventData = {
+      order: {
+        ...order,
+        _id: order._id.toString(),
+        userId: order.userId ? order.userId.toString() : null
+      }
+    };
+    
+    const eventString = `event: order-details\ndata: ${JSON.stringify(eventData)}\n\n`;
+    controller.enqueue(eventString);
+    
+    console.log(`EVENTS: Sent details for order ${orderId}`);
+  } catch (error) {
+    console.error(`EVENTS: Error sending order details:`, error);
+  }
+}
+
+/**
  * Add an admin client to the set of connected clients
  * @param id Client ID
  * @param controller Stream controller for sending events
@@ -212,6 +245,55 @@ export async function addAdminClient(id: string, controller: StreamController): 
   connectionTimestamps.set(id, Date.now());
   connectionStatus.set(id, 'active');
   console.log(`Admin client ${id} added. Total admin clients: ${adminClients.size}`);
+  
+  // Send recent orders to the admin client
+  await sendRecentOrdersToAdmin(controller);
+}
+
+/**
+ * Send recent orders to a newly connected admin client
+ * @param controller Stream controller to send orders to
+ */
+async function sendRecentOrdersToAdmin(controller: StreamController): Promise<void> {
+  try {
+    const ordersCollection = await getCollection("orders");
+    
+    // Get orders from the last 24 hours
+    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
+    
+    const recentOrders = await ordersCollection?.find({
+      createdAt: { $gte: cutoffTime }
+    }).sort({ createdAt: -1 }).toArray();
+    
+    if (!recentOrders || recentOrders.length === 0) {
+      console.log('EVENTS: No recent orders to send to admin');
+      return;
+    }
+    
+    console.log(`EVENTS: Sending ${recentOrders.length} recent orders to admin`);
+    
+    // Send each order as a new-order event
+    for (const order of recentOrders) {
+      const serializedOrder = {
+        ...order,
+        _id: order._id.toString(),
+        userId: order.userId ? order.userId.toString() : null,
+        createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt
+      };
+      
+      const eventData = {
+        type: 'new-order',
+        order: serializedOrder
+      };
+      
+      const eventString = `event: new-order\ndata: ${JSON.stringify(eventData)}\n\n`;
+      controller.enqueue(eventString);
+    }
+    
+    console.log('EVENTS: Finished sending recent orders to admin');
+  } catch (error) {
+    console.error('EVENTS: Error sending recent orders to admin:', error);
+  }
 }
 
 /**
@@ -246,6 +328,52 @@ export async function addUserClient(userId: string, clientId: string, controller
   connectionStatus.set(`user:${userId}:${clientId}`, 'active');
   
   console.log(`User client ${clientId} connected for user ${userId}. Total connections for this user: ${userClientMap.size}`);
+  
+  // Send recent orders for this user
+  await sendUserRecentOrders(userId, controller);
+}
+
+/**
+ * Send recent orders to a newly connected user client
+ * @param userId User ID to fetch orders for
+ * @param controller Stream controller to send orders to
+ */
+async function sendUserRecentOrders(userId: string, controller: StreamController): Promise<void> {
+  try {
+    const ordersCollection = await getCollection("orders");
+    
+    // Get the user's orders with pending status
+    const pendingOrders = await ordersCollection?.find({
+      userId: new ObjectId(userId),
+      status: { $in: ['pending', 'accepted', 'preparing'] }
+    }).sort({ createdAt: -1 }).toArray();
+    
+    if (!pendingOrders || pendingOrders.length === 0) {
+      console.log(`EVENTS: No pending orders to send to user ${userId}`);
+      return;
+    }
+    
+    console.log(`EVENTS: Sending ${pendingOrders.length} pending orders to user ${userId}`);
+    
+    // Send each order status
+    for (const order of pendingOrders) {
+      const eventData = {
+        orderId: order._id.toString(),
+        oldStatus: "",
+        newStatus: order.status,
+        updatedAt: order.updatedAt instanceof Date ? order.updatedAt.toISOString() : 
+                  (order.createdAt instanceof Date ? order.createdAt.toISOString() : new Date().toISOString()),
+        userId: userId
+      };
+      
+      const eventString = `event: order-status-update\ndata: ${JSON.stringify(eventData)}\n\n`;
+      controller.enqueue(eventString);
+    }
+    
+    console.log(`EVENTS: Finished sending pending orders to user ${userId}`);
+  } catch (error) {
+    console.error(`EVENTS: Error sending pending orders to user:`, error);
+  }
 }
 
 /**

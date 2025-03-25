@@ -128,3 +128,22 @@ image: "https://via.placeholder.com/150",
 isFeatured: false,
 points: 100,
 };
+
+// Define connection status type
+export const connectionStatusEnum = z.enum(['active', 'error', 'closed', 'timeout']);
+export type ConnectionStatus = z.infer<typeof connectionStatusEnum>;
+
+// Define the SSE Connection schema for MongoDB storage
+export const sseConnectionSchema = z.object({
+  connectionId: z.string().min(1, "Connection ID is required"),
+  userId: z.string().optional(),
+  isAdmin: z.boolean().default(false),
+  deviceType: z.enum(['mobile', 'desktop', 'unknown']).default('unknown'),
+  userAgent: z.string().optional(),
+  status: connectionStatusEnum.default('active'),
+  createdAt: z.date().default(() => new Date()),
+  lastPing: z.date().default(() => new Date()),
+  ipAddress: z.string().optional(),
+});
+
+export type SSEConnection = z.infer<typeof sseConnectionSchema>;
