@@ -6,19 +6,7 @@ import { getUserProfile } from "@/actions/auth";
 import { OrderItem, ClientOrder, UserReference } from "@/lib/rules";
 
 // Define proper types
-type Order = {
-  _id: string | ObjectId;
-  createdAt: string | Date;
-  items: OrderItem[];
-  totalPrice: number;
-  totalPoints: number;
-  status: string;
-  lastUpdated?: string; // Add lastUpdated field to track when order was last changed
-};
-
-type User = {
-  userId: string;
-};
+// (Removing unused types Order and User)
 
 type UserData = {
   _id: string;
