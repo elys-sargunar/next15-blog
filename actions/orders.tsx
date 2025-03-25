@@ -87,7 +87,7 @@ export async function placeOrder(formData: FormData) {
 
     // Create order object
     const order = {
-      userId: authUser.userId,
+      userId: userData?._id ? userData._id.toString() : authUser.userId,
       userEmail: userData?.email || '',
       userName: userData?.name || '',
       items: cartItems,
@@ -100,7 +100,13 @@ export async function placeOrder(formData: FormData) {
       updatedAt: new Date()
     };
     
-    console.log("SERVER: Order object created, attempting database insert");
+    // Log the user ID format for debugging
+    console.log("SERVER: User ID Format in placeOrder:", {
+      authUserId: authUser.userId,
+      userIdType: typeof authUser.userId,
+      userDataId: userData?._id ? userData._id.toString() : 'not available',
+      userDataIdType: userData?._id ? typeof userData._id : 'not available'
+    });
 
     // Insert into database
     const collection = await getCollection("orders");
@@ -303,17 +309,53 @@ export async function deleteOrder(id: string){
 }
 
 export async function getOrdersByUserId(userId: string){
-    const ordersCollection = await getCollection("orders");
+  console.log(`ORDERS: getOrdersByUserId called with userId: ${userId} (type: ${typeof userId})`);
+  const ordersCollection = await getCollection("orders");
+  
+  // Find orders and sort by createdAt in descending order (newest first)
+  const orders = await ordersCollection?.find(
+      {userId: userId} // Simple string comparison with the exact string from user._id
+  )
+  .sort({ createdAt: -1 }) // Sort newest first
+  .toArray();
+  
+  // If no orders found, log more details to help debug
+  if (!orders || orders.length === 0) {
+    console.log(`ORDERS: No orders found for userId: ${userId}`);
+    // Check if there are any orders in the collection at all
+    const totalOrders = await ordersCollection?.countDocuments({});
+    console.log(`ORDERS: Total orders in collection: ${totalOrders || 0}`);
     
-    // Find orders and sort by createdAt in descending order (newest first)
-    const orders = await ordersCollection?.find(
-        {userId: new ObjectId(userId)}
-    )
-    .sort({ createdAt: -1 }) // Sort newest first
-    .toArray();
-    
-    return orders;
-}   
+    // Try a more lenient search with regex (debugging only)
+    if (totalOrders && totalOrders > 0) {
+      try {
+        const userIdPattern = new RegExp(`^${userId.substring(0, 8)}`, 'i');
+        const similarOrders = await ordersCollection?.find({
+          userId: { $regex: userIdPattern }
+        }).limit(2).toArray();
+        console.log(`ORDERS: Found ${similarOrders?.length || 0} orders with similar userId pattern`);
+        if (similarOrders?.length) {
+          console.log(`ORDERS: Example userId found: ${similarOrders[0].userId}`);
+        }
+      } catch (e: any) {
+        console.log(`ORDERS: Error checking similar userIds: ${e.message || String(e)}`);
+      }
+    }
+  } else {
+    console.log(`ORDERS: Found ${orders.length} orders for user ${userId}`);
+    // Log the first order to see its format
+    if (orders.length > 0) {
+      console.log(`ORDERS: First order example:`, {
+        orderId: orders[0]._id,
+        orderUserId: orders[0].userId,
+        orderUserIdType: typeof orders[0].userId,
+        createdAt: orders[0].createdAt
+      });
+    }
+  }
+  
+  return orders;
+}
 
 export async function getOrdersByTableNumber(tableNumber: number){
     const ordersCollection = await getCollection("orders")

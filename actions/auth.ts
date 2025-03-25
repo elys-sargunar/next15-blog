@@ -125,11 +125,14 @@ export async function getUserProfile() {
     const authUser = await getAuthUser();
     
     if (!authUser) {
+      console.log("AUTH: getUserProfile - No authenticated user found");
       return { 
         success: false, 
         error: "Unauthorized" 
       };
     }
+    
+    console.log(`AUTH: getUserProfile - Found authenticated user with ID: ${authUser.userId}`);
     
     // Fetch user data
     const usersCollection = await getCollection("users");
@@ -139,14 +142,22 @@ export async function getUserProfile() {
     });
     
     if (!userData) {
+      console.log(`AUTH: getUserProfile - No user data found for ID: ${authUser.userId}`);
       return {
         success: false,
         error: "User not found"
       };
     }
     
+    console.log(`AUTH: getUserProfile - Retrieved user data for ${authUser.userId}`);
+    
     // Fetch orders for this user
-    const orders = await getOrdersByUserId(authUser.userId as string);
+    console.log(`AUTH: getUserProfile - Fetching orders for userId: ${authUser.userId}`);
+    // Use the exact _id string from the user document to query orders
+    const userIdForQuery = userData._id.toString();
+    console.log(`AUTH: getUserProfile - Using exact MongoDB _id string for query: ${userIdForQuery}`);
+    const orders = await getOrdersByUserId(userIdForQuery);
+    console.log(`AUTH: getUserProfile - Found ${orders?.length || 0} orders for user ${userIdForQuery}`);
     
     // Return combined profile data
     return {
@@ -163,8 +174,8 @@ export async function getUserProfile() {
       orders: orders ? orders.map((order: any) => ({
         ...order,
         _id: order._id.toString(),
-        // Handle potential ObjectId types in nested objects
-        userId: order.userId ? order.userId.toString() : null,
+        // Ensure userId is a string
+        userId: order.userId ? order.userId.toString() : authUser.userId,
         // Ensure lastUpdated is present for sorting functionality
         lastUpdated: order.lastUpdated ? 
                      (order.lastUpdated instanceof Date ? order.lastUpdated.toISOString() : order.lastUpdated) : 
@@ -173,7 +184,7 @@ export async function getUserProfile() {
     };
     
   } catch (error) {
-    console.error("Error fetching user profile:", error);
+    console.error("AUTH: Error fetching user profile:", error);
     return {
       success: false,
       error: "An error occurred while fetching the user profile"

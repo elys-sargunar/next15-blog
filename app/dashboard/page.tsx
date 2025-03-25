@@ -3,16 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { ObjectId } from "mongodb";
 import { getUserProfile } from "@/actions/auth";
+import { OrderItem, ClientOrder, UserReference } from "@/lib/rules";
 
 // Define proper types
-type OrderItem = {
-  id: string;
-  name: string;
-  price: number;
-  points: number;
-  quantity: number;
-};
-
 type Order = {
   _id: string | ObjectId;
   createdAt: string | Date;
@@ -34,7 +27,7 @@ type UserData = {
 };
 
 // Helper function to sort orders by date
-const sortOrdersByDate = (orders: Order[]): Order[] => {
+const sortOrdersByDate = (orders: ClientOrder[]): ClientOrder[] => {
   return [...orders].sort((a, b) => {
     // First sort by lastUpdated if available
     if (a.lastUpdated && b.lastUpdated) {
@@ -46,9 +39,9 @@ const sortOrdersByDate = (orders: Order[]): Order[] => {
 };
 
 export default function Dashboard() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserReference | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [userOrders, setUserOrders] = useState<Order[]>([]);
+  const [userOrders, setUserOrders] = useState<ClientOrder[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   // Add state for highlighting recently updated orders
@@ -59,11 +52,18 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchData() {
       try {
+        console.log("Dashboard: Fetching user profile data");
         // Get current user and their orders using server action
         const profileResult = await getUserProfile();
-        if (!profileResult.success) throw new Error(profileResult.error || 'Failed to fetch profile');
+        
+        if (!profileResult.success) {
+          console.error("Dashboard: Failed to fetch profile:", profileResult.error);
+          throw new Error(profileResult.error || 'Failed to fetch profile');
+        }
         
         if (profileResult.user && profileResult.userData) {
+          console.log(`Dashboard: User profile loaded for ID ${profileResult.user.userId}`);
+          
           setUser(profileResult.user);
           setUserData({
             _id: profileResult.user.userId,
@@ -71,12 +71,15 @@ export default function Dashboard() {
             points: profileResult.userData.points || 0
           });
           
+          // Log order count from the result
+          console.log(`Dashboard: Received ${profileResult.orders?.length || 0} orders from getUserProfile`);
+          
           // Sort orders by date before setting state
-          const sortedOrders = sortOrdersByDate(profileResult.orders as Order[] || []);
+          const sortedOrders = sortOrdersByDate(profileResult.orders as ClientOrder[] || []);
           setUserOrders(sortedOrders);
         }
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
+        console.error("Dashboard: Error fetching dashboard data:", error);
       } finally {
         setIsLoading(false);
       }
@@ -104,7 +107,7 @@ export default function Dashboard() {
           console.log(`Dashboard: Processing status update for order ${orderId}: ${newStatus}`);
           
           // Check if we have this order in our local state
-          const orderExists = userOrders.some(order => order._id.toString() === orderId);
+          const orderExists = userOrders.some(order => order._id === orderId);
           if (!orderExists) {
             console.log(`Dashboard: Order ${orderId} not found in local state, ignoring update`);
             return;
@@ -113,7 +116,7 @@ export default function Dashboard() {
           // Update the specific order's status in our state
           setUserOrders(currentOrders => {
             const updatedOrders = currentOrders.map(order => 
-              order._id.toString() === orderId 
+              order._id === orderId 
                 ? { ...order, status: newStatus, lastUpdated: new Date().toISOString() } 
                 : order
             );
@@ -158,7 +161,7 @@ export default function Dashboard() {
   
   // Find the selected order
   const selectedOrder = userOrders.find(
-    order => order._id.toString() === selectedOrderId
+    order => order._id === selectedOrderId
   );
 
   if (isLoading) return <p className="text-center py-8">Loading dashboard data...</p>;
@@ -199,29 +202,35 @@ export default function Dashboard() {
               <tbody>
                 {userOrders.map((order) => (
                   <tr 
-                    key={order._id.toString()}
+                    key={order._id}
                     className={`
-                      ${selectedOrderId === order._id.toString() ? "bg-slate-700 hover:bg-slate-600" : ""}
-                      ${updatedOrderId === order._id.toString() ? "bg-yellow-800/20 transition-colors duration-500" : ""}
+                      ${selectedOrderId === order._id ? "bg-slate-700 hover:bg-slate-600" : ""}
+                      ${updatedOrderId === order._id ? "bg-yellow-800/20 transition-colors duration-500" : ""}
                     `}
                   >
                     <td 
                       className={`cursor-pointer hover:text-blue-400 ${
-                        selectedOrderId === order._id.toString() ? "text-white" :
+                        selectedOrderId === order._id ? "text-white" :
                         order.status === "completed" ? "text-green-400" :
                         order.status === "pending" ? "text-slate-800" :
                         "text-gray-300"
                       }`}
-                      onClick={() => handleOrderClick(order._id.toString())}
+                      onClick={() => handleOrderClick(order._id)}
                     >
-                      {typeof order._id === 'object' ? order._id.toString().substring(0, 10) : order._id.substring(0, 10)}...
+                      {order._id.substring(0, 10)}...
                     </td>
-                    <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-slate-800"}>{new Date(order.createdAt).toLocaleDateString("en-GB")} - {new Date(order.createdAt).toLocaleTimeString("en-GB")}</td>
-                    <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-slate-800"}>
+                    <td className={selectedOrderId === order._id ? "text-white" : "text-slate-800"}>
+                      {new Date(order.createdAt).toLocaleDateString("en-GB")} - {new Date(order.createdAt).toLocaleTimeString("en-GB")}
+                    </td>
+                    <td className={selectedOrderId === order._id ? "text-white" : "text-slate-800"}>
                       {order.items?.reduce((total: number, item: OrderItem) => total + (item.quantity || 1), 0) || 0} items
                     </td>
-                    <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-slate-800"}>£{order.totalPrice ? (order.totalPrice / 100).toFixed(2) : "N/A"}</td>
-                    <td className={selectedOrderId === order._id.toString() ? "text-white" : "text-amber-600 font-medium"}>{order.totalPoints || 0}</td>
+                    <td className={selectedOrderId === order._id ? "text-white" : "text-slate-800"}>
+                      £{order.totalPrice ? (order.totalPrice / 100).toFixed(2) : "N/A"}
+                    </td>
+                    <td className={selectedOrderId === order._id ? "text-white" : "text-amber-600 font-medium"}>
+                      {order.totalPoints || 0}
+                    </td>
                     <td>
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                         order.status === "completed" ? "bg-green-100 text-green-800" :
@@ -244,7 +253,7 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold mb-4">Order Details</h3>
             
             <div className="mb-6">
-              <p className="text-slate-300"><span className="font-medium">Order ID:</span> {selectedOrder._id.toString()}</p>
+              <p className="text-slate-300"><span className="font-medium">Order ID:</span> {selectedOrder._id}</p>
               <p className="text-slate-300"><span className="font-medium">Date:</span> {new Date(selectedOrder.createdAt).toLocaleString()}</p>
               <p className="text-slate-300"><span className="font-medium">Status:</span> {selectedOrder.status || "pending"}</p>
               <p className="text-slate-300"><span className="font-medium">Total Price:</span> £{(selectedOrder.totalPrice / 100).toFixed(2)}</p>
