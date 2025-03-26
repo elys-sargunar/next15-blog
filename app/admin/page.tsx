@@ -54,9 +54,15 @@ export default function AdminDashboard() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // State for toast notifications
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | null }>({ 
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | null;
+    orderId?: string;
+    visible: boolean;
+  }>({ 
     message: '', 
-    type: null 
+    type: null,
+    visible: false
   });
 
   // State for tracking recently updated orders
@@ -67,6 +73,9 @@ export default function AdminDashboard() {
     highlightTimer?: NodeJS.Timeout, 
     toastTimer?: NodeJS.Timeout
   }>({});
+
+  // Add this state right after the newOrderIds state
+  const [processedOrderIds, setProcessedOrderIds] = useState<Set<string>>(new Set());
 
   // Helper function to sort orders with most recent updates at the top
   const sortOrdersByRecent = (orders: Order[]): Order[] => {
@@ -137,6 +146,19 @@ export default function AdminDashboard() {
           
           console.log('ADMIN: Processing new order:', newOrder._id);
           
+          // Check if we've already processed this order notification
+          if (processedOrderIds.has(newOrder._id)) {
+            console.log(`ADMIN: Order ${newOrder._id} notification already processed, ignoring`);
+            return;
+          }
+          
+          // Mark this order as processed
+          setProcessedOrderIds(prev => {
+            const newSet = new Set(prev);
+            newSet.add(newOrder._id);
+            return newSet;
+          });
+          
           // Add the new order to the state
           setAllOrders(prevOrders => {
             // Check if we already have this order (avoid duplicates)
@@ -168,16 +190,10 @@ export default function AdminDashboard() {
           playNotificationSound();
           
           // Show toast notification
-          showToast(`New order received: ${newOrder._id.substring(0, 8)}...`, 'success');
+          showToast(`New order received: ${newOrder._id.substring(0, 8)}...`, 'success', newOrder._id);
           
-          // Clear the highlighting after 10 seconds
-          setTimeout(() => {
-            setNewOrderIds(prev => {
-              const updated = new Set(prev);
-              updated.delete(newOrder._id);
-              return updated;
-            });
-          }, 10000);
+          // We no longer automatically clear the highlighting after 10 seconds
+          // The notification will stay until dismissed
         } catch (error) {
           console.error('ADMIN: Error processing new order event:', error);
         }
@@ -215,7 +231,7 @@ export default function AdminDashboard() {
             playNotificationSound();
             
             // Show toast notification
-            showToast(`Order ${orderId.substring(0, 8)}... updated to "${newStatus}"`, 'success');
+            showToast(`Order ${orderId.substring(0, 8)}... updated to "${newStatus}"`, 'success', orderId);
             
             // Clear any existing highlight timer
             if (timerRefs.current.highlightTimer) {
@@ -303,18 +319,43 @@ export default function AdminDashboard() {
   };
 
   // Function to show toast
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    
+  const showToast = (message: string, type: 'success' | 'error', orderId?: string) => {
     // Clear any existing toast timer
     if (timerRefs.current.toastTimer) {
       clearTimeout(timerRefs.current.toastTimer);
     }
     
-    // Auto-hide after 3 seconds
-    timerRefs.current.toastTimer = setTimeout(() => {
-      setToast({ message: '', type: null });
-    }, 3000);
+    // Show toast with associated order ID if provided
+    setToast({ 
+      message, 
+      type, 
+      orderId, 
+      visible: true 
+    });
+    
+    // We no longer auto-hide toasts
+  };
+  
+  // Function to dismiss toast
+  const dismissToast = () => {
+    setToast(prev => ({ ...prev, visible: false }));
+  };
+  
+  // Function to handle clicking on a toast notification
+  const handleToastOrderClick = (orderId: string) => {
+    if (orderId) {
+      // Set the selected order
+      setSelectedOrderId(orderId);
+      
+      // Scroll to the order in the table
+      const orderRow = document.getElementById(`order-row-${orderId}`);
+      if (orderRow) {
+        orderRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+    
+    // Dismiss the toast
+    dismissToast();
   };
 
   // Clean up all timers when component unmounts
@@ -404,10 +445,29 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Toast notification */}
-      {toast.type && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg transition-all
+      {toast.visible && toast.type && (
+        <div className={`fixed top-0 left-0 w-full z-50 p-4 flex items-center justify-between
           ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-          {toast.message}
+          <div className="flex-1">
+            {toast.message}
+          </div>
+          {toast.orderId && (
+            <button 
+              onClick={() => handleToastOrderClick(toast.orderId!)}
+              className="ml-4 bg-white bg-opacity-20 px-3 py-1 rounded hover:bg-opacity-30 transition-colors"
+            >
+              View Order
+            </button>
+          )}
+          <button 
+            onClick={dismissToast}
+            className="ml-4 text-white hover:text-gray-200 focus:outline-none"
+            aria-label="Close notification"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
         </div>
       )}
       
@@ -469,6 +529,7 @@ export default function AdminDashboard() {
                   return (
                     <tr 
                       key={order._id}
+                      id={`order-row-${order._id}`}
                       className={`
                         ${selectedOrderId === order._id ? "bg-slate-700 hover:bg-slate-600" : "hover:bg-slate-700"}
                         ${isNewOrder ? "animate-pulse bg-green-900" : ""}

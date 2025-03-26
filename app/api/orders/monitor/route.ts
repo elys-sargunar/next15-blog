@@ -23,13 +23,15 @@ export async function GET(request: NextRequest) {
     
     // Find recent orders
     const newOrders = await ordersCollection?.find({
-      createdAt: { $gte: sinceDate }
+      createdAt: { $gte: sinceDate },
+      status: { $nin: ['completed', 'cancelled'] } // Only notify about active orders
     }).toArray();
     
     // Find updated orders (using the updatedAt field)
     const updatedOrders = await ordersCollection?.find({
       updatedAt: { $gte: sinceDate },
-      createdAt: { $lt: sinceDate } // Only get orders that weren't just created
+      createdAt: { $lt: sinceDate }, // Only get orders that weren't just created
+      status: { $nin: ['completed', 'cancelled'] } // Only notify about active orders
     }).toArray();
     
     console.log(`API: Found ${newOrders?.length || 0} new orders and ${updatedOrders?.length || 0} updated orders`);

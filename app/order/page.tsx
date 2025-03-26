@@ -2,9 +2,10 @@
 
 import { useCart } from "@/lib/CartContext";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { placeOrder } from "@/actions/orders";
 import { getUserProfile } from "@/actions/auth";
+import { useRouter } from "next/navigation";
 
 export default function OrderPage() {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
@@ -15,6 +16,8 @@ export default function OrderPage() {
   const [earnedPoints, setEarnedPoints] = useState<number | null>(null);
   const [authUser, setAuthUser] = useState<{ userId: string } | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   // Check authentication on component mount
   useEffect(() => {
@@ -76,28 +79,38 @@ export default function OrderPage() {
       formData.append('totalPoints', totalPoints.toString());
       formData.append('email', authUser.userId); // User ID as reference for logged-in users
       
-      // Call the server action with FormData
-      const result = await placeOrder(formData);
-
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to place order');
-      }
-
-      // Store the order ID for reference
-      setOrderId(result.order._id.toString());
-      
-      // Since the API response no longer includes totalPoints, use the calculated value
-      setEarnedPoints(totalPoints);
-      
-      // Clear the cart
-      clearCart();
-      
-      // Show success message
-      setOrderPlaced(true);
+      // Use startTransition to prevent unnecessary page refresh
+      // This helps maintain the SSE connection
+      startTransition(async () => {
+        try {
+          // Call the server action with FormData
+          const result = await placeOrder(formData);
+  
+          if (!result.success) {
+            throw new Error(result.error || 'Failed to place order');
+          }
+  
+          // Store the order ID for reference - use the safe orderId directly from result
+          setOrderId(result.orderId ? String(result.orderId) : null);
+          
+          // Use totalPoints from response or fallback to calculated value
+          setEarnedPoints(result.totalPoints || totalPoints);
+          
+          // Clear the cart
+          clearCart();
+          
+          // Show success message
+          setOrderPlaced(true);
+          setIsSubmitting(false);
+        } catch (error) {
+          console.error("Failed to place order in transition:", error);
+          setOrderError(error instanceof Error ? error.message : 'An unknown error occurred');
+          setIsSubmitting(false);
+        }
+      });
     } catch (error) {
       console.error("Failed to place order:", error);
       setOrderError(error instanceof Error ? error.message : 'An unknown error occurred');
-    } finally {
       setIsSubmitting(false);
     }
   };

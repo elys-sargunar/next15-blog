@@ -3,6 +3,7 @@
 import { getCollection } from '@/lib/db';
 import { ObjectId } from 'mongodb';
 import { ConnectionStatus } from '@/lib/rules';
+import { safeToString } from '@/lib/utils';
 
 // Define the type for order event data
 export interface OrderEventData {
@@ -43,7 +44,12 @@ const connectionStatus: Map<string, ConnectionStatus> = new Map();
  * @param data Event data
  */
 export async function sendEventToAdmins(event: string, data: OrderEventData): Promise<void> {
-  const eventString = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  // Ensure data is safely serialized (especially if it contains ObjectIds)
+  // Convert the data to JSON and back to strip any MongoDB-specific types
+  const serializedData = JSON.parse(JSON.stringify(data));
+  
+  // Convert the serialized data back to a string for sending
+  const eventString = `event: ${event}\ndata: ${JSON.stringify(serializedData)}\n\n`;
   const failedClients: string[] = [];
 
   console.log(`EVENTS: Broadcasting "${event}" event to ${adminClients.size} admin clients - ${new Date().toISOString()}`);
@@ -101,13 +107,22 @@ export async function sendEventToAdmins(event: string, data: OrderEventData): Pr
  */
 export async function sendEventToUser(userId: string, event: string, data: StatusUpdateEventData): Promise<void> {
   // Make sure userId is a string
-  userId = String(userId);
+  userId = safeToString(userId);
   
   console.log(`EVENTS: Preparing "${event}" event for user ${userId}`);
   
-  // Add userId to event data for tracking
-  const eventData = { ...data, userId };
-  const eventString = `event: ${event}\ndata: ${JSON.stringify(eventData)}\n\n`;
+  // Add userId to event data for tracking and ensure it's a string
+  const eventData = { 
+    ...data,
+    userId,
+    // Ensure orderId is always a string
+    orderId: safeToString(data.orderId)
+  };
+  
+  // Serialize the data to ensure no MongoDB-specific types are present
+  const serializedData = JSON.parse(JSON.stringify(eventData));
+  
+  const eventString = `event: ${event}\ndata: ${JSON.stringify(serializedData)}\n\n`;
   
   const userClientMap = userClients.get(userId);
   
@@ -180,7 +195,10 @@ export async function broadcastOrderStatusUpdate(
   newStatus: string
 ): Promise<void> {
   // Make sure userId is a string
-  userId = String(userId);
+  userId = safeToString(userId);
+  
+  // Make sure orderId is a string
+  orderId = safeToString(orderId);
   
   console.log(`EVENTS: Broadcasting order status update for order ${orderId} to user ${userId}: ${oldStatus} -> ${newStatus}`);
   
@@ -210,6 +228,9 @@ export async function broadcastOrderStatusUpdate(
  */
 export async function sendOrderDetails(orderId: string, controller: StreamController): Promise<void> {
   try {
+    // Ensure orderId is a string
+    orderId = safeToString(orderId);
+    
     const ordersCollection = await getCollection("orders");
     const order = await ordersCollection?.findOne({ _id: new ObjectId(orderId) });
     
@@ -218,12 +239,18 @@ export async function sendOrderDetails(orderId: string, controller: StreamContro
       return;
     }
     
+    // Create a properly serialized version of the order
+    const serializedOrder = {
+      ...order,
+      _id: safeToString(order._id),
+      userId: safeToString(order.userId),
+      createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt,
+      updatedAt: order.updatedAt instanceof Date ? order.updatedAt.toISOString() : order.updatedAt
+    };
+    
+    // Further ensure all MongoDB-specific types are converted by using JSON serialization
     const eventData = {
-      order: {
-        ...order,
-        _id: order._id.toString(),
-        userId: order.userId ? order.userId.toString() : null
-      }
+      order: JSON.parse(JSON.stringify(serializedOrder))
     };
     
     const eventString = `event: order-details\ndata: ${JSON.stringify(eventData)}\n\n`;
@@ -258,22 +285,21 @@ async function sendRecentOrdersToAdmin(controller: StreamController): Promise<vo
   try {
     const ordersCollection = await getCollection("orders");
     
-    // Get orders from the last 24 hours
-    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
-    
-    const recentOrders = await ordersCollection?.find({
-      createdAt: { $gte: cutoffTime }
+    // Get only active orders (pending or accepted)
+    // NOT completed or cancelled orders
+    const activeOrders = await ordersCollection?.find({
+      status: { $in: ['pending', 'accepted', 'preparing'] }
     }).sort({ createdAt: -1 }).toArray();
     
-    if (!recentOrders || recentOrders.length === 0) {
-      console.log('EVENTS: No recent orders to send to admin');
+    if (!activeOrders || activeOrders.length === 0) {
+      console.log('EVENTS: No active orders to send to admin');
       return;
     }
     
-    console.log(`EVENTS: Sending ${recentOrders.length} recent orders to admin`);
+    console.log(`EVENTS: Sending ${activeOrders.length} active orders to admin`);
     
     // Send each order as a new-order event
-    for (const order of recentOrders) {
+    for (const order of activeOrders) {
       const serializedOrder = {
         ...order,
         _id: order._id.toString(),
@@ -290,9 +316,9 @@ async function sendRecentOrdersToAdmin(controller: StreamController): Promise<vo
       controller.enqueue(eventString);
     }
     
-    console.log('EVENTS: Finished sending recent orders to admin');
+    console.log('EVENTS: Finished sending active orders to admin');
   } catch (error) {
-    console.error('EVENTS: Error sending recent orders to admin:', error);
+    console.error('EVENTS: Error sending active orders to admin:', error);
   }
 }
 
@@ -437,4 +463,4 @@ export async function getConnectionStats() {
         age: Math.floor((Date.now() - timestamp) / 1000) // Age in seconds
       }))
   };
-} 
+}

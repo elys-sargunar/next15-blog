@@ -3,6 +3,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
+// Create a global variable to track instances
+// This should be outside your component to persist across renders
+const globalInstanceTracker = typeof window !== 'undefined' ? (window as any).__orderStatusListenerCount || 0 : 0;
+
 // This component handles real-time order status updates for logged-in users
 export default function OrderStatusListener() {
   const [connected, setConnected] = useState(false);
@@ -10,6 +14,8 @@ export default function OrderStatusListener() {
   
   // Add a timestamp state for order polling
   const [lastPollTime, setLastPollTime] = useState<string>(new Date().toISOString());
+  // Add ref to store last poll time to avoid effect dependencies
+  const lastPollTimeRef = useRef<string>(new Date().toISOString());
   
   // Refs for timers and event source
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -26,6 +32,27 @@ export default function OrderStatusListener() {
   
   // Channel for broadcasting status to other components like the indicator
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+  
+  // Add instance tracking
+  useEffect(() => {
+    // Don't run on server
+    if (typeof window === 'undefined') return;
+    
+    // Check if an instance is already mounted
+    if ((window as any).__orderStatusListenerCount) {
+      console.warn('Multiple OrderStatusListener instances detected. This can cause polling issues.');
+      (window as any).__orderStatusListenerCount++;
+    } else {
+      (window as any).__orderStatusListenerCount = 1;
+    }
+    
+    return () => {
+      // Cleanup on unmount
+      if (typeof window !== 'undefined') {
+        (window as any).__orderStatusListenerCount--;
+      }
+    };
+  }, []);
   
   // Expose connection status to other components
   useEffect(() => {
@@ -66,7 +93,8 @@ export default function OrderStatusListener() {
     
     async function pollOrderUpdates() {
       try {
-        const response = await fetch(`/api/orders/monitor?since=${encodeURIComponent(lastPollTime)}`);
+        // Use the ref value instead of state
+        const response = await fetch(`/api/orders/monitor?since=${encodeURIComponent(lastPollTimeRef.current)}`);
         if (!response.ok) {
           console.error('CLIENT: Order monitor poll failed:', response.statusText);
           return;
@@ -75,8 +103,9 @@ export default function OrderStatusListener() {
         const data = await response.json();
         
         if (data.success) {
-          // Update timestamp for next poll
+          // Update both state (for rendering purposes) and ref (for next API call)
           setLastPollTime(data.timestamp);
+          lastPollTimeRef.current = data.timestamp;
           
           if (data.newOrders > 0 || data.updatedOrders > 0) {
             console.log(`CLIENT: Poll found ${data.newOrders} new orders and ${data.updatedOrders} updated orders`);
@@ -87,19 +116,21 @@ export default function OrderStatusListener() {
       }
     }
     
-    // Poll every 30 seconds
-    pollIntervalRef.current = setInterval(pollOrderUpdates, 30000);
-    
-    // Initial poll
+    // Initial poll on mount
     pollOrderUpdates();
     
-    // Cleanup
+    // Poll every 30 seconds - only create ONE interval
+    const intervalId = setInterval(pollOrderUpdates, 30000);
+    pollIntervalRef.current = intervalId;
+    
+    // Cleanup on unmount - make sure we clear the interval
     return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+      if (intervalId) {
+        clearInterval(intervalId);
+        pollIntervalRef.current = null;
       }
     };
-  }, [lastPollTime]);
+  }, []); // Remove lastPollTime dependency to avoid re-creating intervals
   
   // Setup EventSource connection and event listeners
   useEffect(() => {
@@ -366,13 +397,9 @@ export default function OrderStatusListener() {
   
   // Show toast notification
   const showToast = (message: string, styleClass: string) => {
-    console.log('CLIENT: Showing toast notification:', message);
-    
     // Create toast element
     const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 p-4 rounded shadow-lg ${styleClass} border z-50 transform transition-all duration-500 ease-in-out -translate-y-full opacity-0`;
-    toast.style.maxWidth = '90vw';
-    toast.style.width = '400px';
+    toast.className = `fixed top-0 left-0 right-0 mx-auto max-w-md mt-4 p-4 rounded-md shadow-lg ${styleClass} transform transition-all duration-500 -translate-y-full opacity-0 z-50`;
     
     // Add message
     toast.innerHTML = `
@@ -421,4 +448,4 @@ export default function OrderStatusListener() {
   
   // This component doesn't render anything visible
   return null;
-} 
+}

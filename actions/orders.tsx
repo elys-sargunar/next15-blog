@@ -7,6 +7,7 @@ import { FoodItem, foodItemExample, foodItemSchema, FoodOrder } from "@/lib/rule
 import { getCollection } from "@/lib/db";
 import { sendEventToAdmins, broadcastOrderStatusUpdate } from "@/actions/events";
 import getAuthUser from "@/lib/getAuthUser";
+import { safeToString, serializeDocument, serializeDates } from "@/lib/utils";
 
 // Define type for cart item
 interface CartItem {
@@ -66,7 +67,7 @@ export async function placeOrder(formData: FormData) {
     
     if (!authUser) {
       console.log("SERVER: Order placement rejected - user not authenticated");
-      return { error: "You must be logged in to place an order." };
+      return { success: false, error: "You must be logged in to place an order." };
     }
     
     // Get user data from database
@@ -78,12 +79,10 @@ export async function placeOrder(formData: FormData) {
 
     // Parse form data
     const cartItems = JSON.parse(formData.get('cartItems') as string);
-    const subTotal = parseFloat(formData.get('subTotal') as string);
-    const tax = parseFloat(formData.get('tax') as string);
-    const total = parseFloat(formData.get('total') as string);
-    const pointsEarned = parseInt(formData.get('pointsEarned') as string);
+    const totalPrice = parseFloat(formData.get('totalPrice') as string);
+    const totalPoints = parseInt(formData.get('totalPoints') as string);
     
-    console.log(`SERVER: Parsed order data - ${cartItems.length} items, total: ${total}, points: ${pointsEarned}`);
+    console.log(`SERVER: Parsed order data - ${cartItems.length} items, total: ${totalPrice}, points: ${totalPoints}`);
 
     // Create order object
     const order = {
@@ -91,10 +90,8 @@ export async function placeOrder(formData: FormData) {
       userEmail: userData?.email || '',
       userName: userData?.name || '',
       items: cartItems,
-      subTotal,
-      tax,
-      total,
-      pointsEarned,
+      totalPrice,
+      totalPoints,
       status: "pending",
       createdAt: new Date(),
       updatedAt: new Date()
@@ -114,7 +111,7 @@ export async function placeOrder(formData: FormData) {
     
     if (!result?.insertedId) {
       console.error("SERVER: Failed to insert order into database");
-      return { error: "Failed to create order. Please try again." };
+      return { success: false, error: "Failed to create order. Please try again." };
     }
     
     // Get the inserted order with its ID
@@ -128,9 +125,16 @@ export async function placeOrder(formData: FormData) {
     // Notify admin clients about the new order
     console.log("SERVER: Attempting to notify admin clients about new order");
     try {
+      // Create a safe serialized version of the order for the event system
+      const serializedOrderForEvent = {
+        ...orderWithId,
+        _id: result.insertedId.toString(),
+        userId: safeToString(orderWithId.userId)
+      };
+      
       await sendEventToAdmins("new-order", {
         type: "new-order",
-        order: orderWithId
+        order: serializedOrderForEvent
       });
       console.log("SERVER: Successfully sent new order notification to admins");
     } catch (notifyError) {
@@ -159,16 +163,22 @@ export async function placeOrder(formData: FormData) {
     
     console.log("SERVER: Order placement complete, returning success");
     
-    // Return success with the created order
+    // IMPORTANT: Return success with properly serialized order data
+    // This ensures no MongoDB specific objects like ObjectId are sent to the client
+    const serializedOrder = serializeDates(serializeDocument(orderWithId));
+    
     return {
       success: true,
       message: "Order placed successfully!",
-      order: orderWithId
+      orderId: serializedOrder._id,
+      totalPoints: serializedOrder.totalPoints,
+      order: serializedOrder
     };
   } catch (error) {
     console.error("SERVER: Error in placeOrder function:", error);
     return {
-      error: "An unexpected error occurred. Please try again."
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected error occurred. Please try again."
     };
   }
 }
