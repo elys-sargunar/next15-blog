@@ -167,6 +167,14 @@ export async function placeOrder(formData: FormData) {
     // This ensures no MongoDB specific objects like ObjectId are sent to the client
     const serializedOrder = serializeDates(serializeDocument(orderWithId));
     
+    // Check if serialization was successful
+    if (!serializedOrder) {
+      return {
+        success: false,
+        error: "Failed to serialize order data"
+      };
+    }
+    
     return {
       success: true,
       message: "Order placed successfully!",
