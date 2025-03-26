@@ -3,18 +3,17 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
-// Create a global variable to track instances
-// This should be outside your component to persist across renders
-const globalInstanceTracker = typeof window !== 'undefined' ? (window as any).__orderStatusListenerCount || 0 : 0;
+// Create a type for the window with our custom property
+interface CustomWindow extends Window {
+  __orderStatusListenerCount?: number;
+}
 
 // This component handles real-time order status updates for logged-in users
 export default function OrderStatusListener() {
   const [connected, setConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   
-  // Add a timestamp state for order polling
-  const [lastPollTime, setLastPollTime] = useState<string>(new Date().toISOString());
-  // Add ref to store last poll time to avoid effect dependencies
+  // Remove the unused lastPollTime state since we're using the ref directly
   const lastPollTimeRef = useRef<string>(new Date().toISOString());
   
   // Refs for timers and event source
@@ -39,17 +38,21 @@ export default function OrderStatusListener() {
     if (typeof window === 'undefined') return;
     
     // Check if an instance is already mounted
-    if ((window as any).__orderStatusListenerCount) {
+    const customWindow = window as CustomWindow;
+    if (customWindow.__orderStatusListenerCount) {
       console.warn('Multiple OrderStatusListener instances detected. This can cause polling issues.');
-      (window as any).__orderStatusListenerCount++;
+      customWindow.__orderStatusListenerCount++;
     } else {
-      (window as any).__orderStatusListenerCount = 1;
+      customWindow.__orderStatusListenerCount = 1;
     }
     
     return () => {
       // Cleanup on unmount
       if (typeof window !== 'undefined') {
-        (window as any).__orderStatusListenerCount--;
+        const customWindow = window as CustomWindow;
+        if (customWindow.__orderStatusListenerCount) {
+          customWindow.__orderStatusListenerCount--;
+        }
       }
     };
   }, []);
@@ -103,8 +106,7 @@ export default function OrderStatusListener() {
         const data = await response.json();
         
         if (data.success) {
-          // Update both state (for rendering purposes) and ref (for next API call)
-          setLastPollTime(data.timestamp);
+          // Only update the ref value, not the state since it's been removed
           lastPollTimeRef.current = data.timestamp;
           
           if (data.newOrders > 0 || data.updatedOrders > 0) {
@@ -130,7 +132,7 @@ export default function OrderStatusListener() {
         pollIntervalRef.current = null;
       }
     };
-  }, []); // Remove lastPollTime dependency to avoid re-creating intervals
+  }, []); // Empty dependency array - only run on mount/unmount
   
   // Setup EventSource connection and event listeners
   useEffect(() => {

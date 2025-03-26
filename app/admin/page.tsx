@@ -275,7 +275,7 @@ export default function AdminDashboard() {
         eventSourceRef.current.close();
       }
     };
-  }, []);
+  }, [processedOrderIds]);
   
   // Function to play notification sound using audio file
   const playNotificationSound = () => {

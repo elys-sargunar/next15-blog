@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useState, useEffect, useTransition } from "react";
 import { placeOrder } from "@/actions/orders";
 import { getUserProfile } from "@/actions/auth";
-import { useRouter } from "next/navigation";
 
 export default function OrderPage() {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
@@ -16,8 +15,7 @@ export default function OrderPage() {
   const [earnedPoints, setEarnedPoints] = useState<number | null>(null);
   const [authUser, setAuthUser] = useState<{ userId: string } | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
+  const [, startTransition] = useTransition();
 
   // Check authentication on component mount
   useEffect(() => {
