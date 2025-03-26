@@ -61,7 +61,8 @@ export function serializeDocument<T extends Record<string, unknown>>(doc: T | nu
 export function serializeDates<T extends Record<string, unknown>>(doc: T | null | undefined, dateFields: string[] = ['createdAt', 'updatedAt']): T | null {
   if (!doc) return null;
   
-  const result = { ...doc };
+  // Create a copy as a Record<string, unknown> first
+  const result = { ...doc } as Record<string, unknown>;
   
   for (const field of dateFields) {
     if (doc[field] instanceof Date) {
@@ -69,5 +70,6 @@ export function serializeDates<T extends Record<string, unknown>>(doc: T | null 
     }
   }
   
-  return result;
+  // Convert back to T after modifications
+  return result as T;
 }
