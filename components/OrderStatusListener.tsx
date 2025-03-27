@@ -228,24 +228,49 @@ export default function OrderStatusListener() {
           // Update last activity time
           lastPingTimeRef.current = Date.now();
           
-          // Set last event for the UI
-          console.log('CLIENT: Order status updated:', data.oldStatus || 'New', '->', data.newStatus);
+          // Get status transition for better notifications
+          const oldStatus = data.oldStatus || 'new';
+          const newStatus = data.newStatus || 'unknown';
+          
+          console.log(`CLIENT: Order status updated: ${oldStatus} -> ${newStatus}`);
+          
+          // Create a more descriptive message based on the status
+          let message = `Order status updated to: ${newStatus}`;
+          let styleClass = 'bg-blue-100 border-blue-500';
+          
+          // Customize message based on status
+          if (newStatus === 'accepted') {
+            message = 'Your order has been accepted! The kitchen is preparing your food.';
+            styleClass = 'bg-blue-100 border-blue-500';
+          } else if (newStatus === 'completed') {
+            message = 'Your order is now complete! Thank you for your purchase.';
+            styleClass = 'bg-green-100 border-green-500';
+          } else if (newStatus === 'cancelled') {
+            message = 'Your order has been cancelled.';
+            styleClass = 'bg-red-100 border-red-500';
+          }
           
           // Broadcast the update to other components
-          const statusUpdateChannel = new BroadcastChannel('order-status-updates');
-          statusUpdateChannel.postMessage({
-            type: 'status-update',
-            ...data
-          });
-          
-          // Close the channel after sending
-          setTimeout(() => {
-            statusUpdateChannel.close();
-          }, 100);
+          try {
+            const statusUpdateChannel = new BroadcastChannel('order-status-updates');
+            statusUpdateChannel.postMessage({
+              type: 'status-update',
+              ...data
+            });
+            
+            // Give a moment for the message to be sent before closing
+            setTimeout(() => {
+              statusUpdateChannel.close();
+            }, 100);
+            
+            console.log('CLIENT: Broadcasted status update to other components');
+          } catch (broadcastError) {
+            console.error('CLIENT: Error broadcasting status update:', broadcastError);
+          }
           
           // Play notification sound and show toast
           playNotificationSound();
-          showToast(`Order status updated to: ${data.newStatus}`, 'bg-blue-100 border-blue-500');
+          showToast(message, styleClass);
           
           // Force refresh to update UI
           router.refresh();
@@ -401,12 +426,12 @@ export default function OrderStatusListener() {
   const showToast = (message: string, styleClass: string) => {
     // Create toast element
     const toast = document.createElement('div');
-    toast.className = `fixed top-0 left-0 right-0 mx-auto max-w-md mt-4 p-4 rounded-md shadow-lg ${styleClass} transform transition-all duration-500 -translate-y-full opacity-0 z-50`;
+    toast.className = `fixed bottom-4 right-4 max-w-md p-4 rounded-md shadow-lg border-l-4 ${styleClass} transform transition-all duration-500 translate-y-full opacity-0 z-50`;
     
     // Add message
     toast.innerHTML = `
       <div class="flex justify-between items-start">
-        <div class="flex-1 mr-4">${message}</div>
+        <div class="flex-1 mr-4 font-medium">${message}</div>
         <button class="text-gray-600 hover:text-gray-800" aria-label="Close notification">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -421,7 +446,7 @@ export default function OrderStatusListener() {
     
     // Show toast with animation
     setTimeout(() => {
-      toast.classList.remove('-translate-y-full', 'opacity-0');
+      toast.classList.remove('translate-y-full', 'opacity-0');
     }, 10);
     
     // Add click handler for close button
@@ -429,14 +454,14 @@ export default function OrderStatusListener() {
       closeToast(toast);
     });
     
-    // Auto-close after 6 seconds
+    // Auto-close after 10 seconds (longer duration)
     const timeout = setTimeout(() => {
       closeToast(toast);
-    }, 6000);
+    }, 10000);
     
     // Helper function to close toast with animation
     function closeToast(toastEl: HTMLElement) {
-      toastEl.classList.add('-translate-y-full', 'opacity-0');
+      toastEl.classList.add('translate-y-full', 'opacity-0');
       clearTimeout(timeout);
       
       // Remove from DOM after animation

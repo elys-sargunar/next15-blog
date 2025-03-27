@@ -58,15 +58,18 @@ export default function OrdersTable({ initialOrders, currentUserId }: { initialO
         
         console.log(`OrdersTable: Processing status update for order ${orderId}: ${newStatus}`);
         
-        // Check if we have this order in our local state
-        const orderExists = orders.some(order => order._id === orderId);
-        if (!orderExists) {
-          console.log(`OrdersTable: Order ${orderId} not found in local state, ignoring update`);
-          return;
-        }
-        
         // Update the specific order's status in our state
         setOrders(currentOrders => {
+          // First check if we have this order in our local state
+          const orderExists = currentOrders.some(order => order._id === orderId);
+          if (!orderExists) {
+            console.log(`OrdersTable: Order ${orderId} not found in local state, ignoring update`);
+            return currentOrders;
+          }
+          
+          console.log(`OrdersTable: Updating order ${orderId} to status ${newStatus}`);
+          
+          // Update the order and sort
           const updatedOrders = currentOrders.map(order => 
             order._id === orderId 
               ? { ...order, status: newStatus, lastUpdated: new Date().toISOString() } 
@@ -83,8 +86,6 @@ export default function OrdersTable({ initialOrders, currentUserId }: { initialO
             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
           });
         });
-        
-        console.log(`OrdersTable: Updated order ${orderId} to status ${newStatus}`);
         
         // Set the updated order ID to trigger the highlight effect
         setUpdatedOrderId(orderId);
@@ -110,7 +111,7 @@ export default function OrdersTable({ initialOrders, currentUserId }: { initialO
         clearTimeout(highlightTimeoutRef.current);
       }
     };
-  }, [currentUserId, orders]);
+  }, [currentUserId]);
   
   // Sort orders on initial render to ensure most recent are at the top
   useEffect(() => {

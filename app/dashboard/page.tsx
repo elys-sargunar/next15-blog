@@ -31,8 +31,6 @@ export default function Dashboard() {
   const [userOrders, setUserOrders] = useState<ClientOrder[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  // Add state for highlighting recently updated orders
-  const [updatedOrderId, setUpdatedOrderId] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch data on component mount
@@ -74,72 +72,6 @@ export default function Dashboard() {
     
     fetchData();
   }, []);
-
-  // Set up listener for order status updates
-  useEffect(() => {
-    console.log("Dashboard: Setting up listener for order status updates");
-    
-    // Create a broadcast channel to listen for order status updates
-    const channel = new BroadcastChannel('order-status-updates');
-    
-    // Listen for status updates
-    channel.addEventListener('message', (event) => {
-      console.log("Dashboard: Received broadcast channel message:", event.data);
-      
-      if (event.data && event.data.type === 'status-update') {
-        const { orderId, newStatus, userId } = event.data;
-        
-        // If this user has this order, process the update
-        if (user && userId === user.userId) {
-          console.log(`Dashboard: Processing status update for order ${orderId}: ${newStatus}`);
-          
-          // Check if we have this order in our local state
-          const orderExists = userOrders.some(order => order._id === orderId);
-          if (!orderExists) {
-            console.log(`Dashboard: Order ${orderId} not found in local state, ignoring update`);
-            return;
-          }
-          
-          // Update the specific order's status in our state
-          setUserOrders(currentOrders => {
-            const updatedOrders = currentOrders.map(order => 
-              order._id === orderId 
-                ? { ...order, status: newStatus, lastUpdated: new Date().toISOString() } 
-                : order
-            );
-            
-            // Sort orders so most recently updated appear first
-            return sortOrdersByDate(updatedOrders);
-          });
-          
-          console.log(`Dashboard: Updated order ${orderId} to status ${newStatus}`);
-          
-          // Set the updated order ID to trigger the highlight effect
-          setUpdatedOrderId(orderId);
-          
-          // Clear any existing timeout
-          if (highlightTimeoutRef.current) {
-            clearTimeout(highlightTimeoutRef.current);
-          }
-          
-          // Clear the highlight after 3 seconds
-          highlightTimeoutRef.current = setTimeout(() => {
-            setUpdatedOrderId(null);
-            highlightTimeoutRef.current = null;
-          }, 3000);
-        }
-      }
-    });
-    
-    // Cleanup on unmount
-    return () => {
-      console.log("Dashboard: Cleaning up broadcast channel listener");
-      channel.close();
-      if (highlightTimeoutRef.current) {
-        clearTimeout(highlightTimeoutRef.current);
-      }
-    };
-  }, [user, userOrders]);
 
   function handleOrderClick(orderId: string) {
     // Toggle selection - if already selected, deselect it
@@ -192,7 +124,6 @@ export default function Dashboard() {
                     key={order._id}
                     className={`
                       ${selectedOrderId === order._id ? "bg-slate-700 hover:bg-slate-600" : ""}
-                      ${updatedOrderId === order._id ? "bg-yellow-800/20 transition-colors duration-500" : ""}
                     `}
                   >
                     <td 
