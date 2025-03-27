@@ -190,7 +190,7 @@ export const appOrderSchema = z.object({
   subTotal: z.number().optional(),
   tax: z.number().optional(),
   total: z.number(),
-  pointsEarned: z.number().int().default(0),
+  totalPoints: z.number().int().default(0),
   status: z.enum(['pending', 'accepted', 'completed', 'cancelled']).default('pending'),
   createdAt: z.date().default(() => new Date()),
   updatedAt: z.date().default(() => new Date())

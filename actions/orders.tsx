@@ -80,7 +80,24 @@ export async function placeOrder(formData: FormData) {
     // Parse form data
     const cartItems = JSON.parse(formData.get('cartItems') as string);
     const totalPrice = parseFloat(formData.get('totalPrice') as string);
-    const totalPoints = parseInt(formData.get('totalPoints') as string);
+    
+    // Calculate points from items in case the client calculation is wrong or missing
+    let totalPoints = 0;
+    if (Array.isArray(cartItems)) {
+      totalPoints = cartItems.reduce((sum, item) => {
+        const itemPoints = typeof item.points === 'number' ? Math.floor(item.points) : 0;
+        const quantity = typeof item.quantity === 'number' ? Math.floor(item.quantity) : 1;
+        return sum + (itemPoints * quantity);
+      }, 0);
+    }
+    
+    // Fallback to the form data value if needed, ensuring it's a valid integer
+    if (totalPoints === 0) {
+      const formPoints = parseInt(formData.get('totalPoints') as string);
+      if (!isNaN(formPoints) && formPoints > 0) {
+        totalPoints = formPoints;
+      }
+    }
     
     console.log(`SERVER: Parsed order data - ${cartItems.length} items, total: ${totalPrice}, points: ${totalPoints}`);
 

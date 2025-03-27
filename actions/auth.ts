@@ -176,6 +176,9 @@ export async function getUserProfile() {
         _id: order._id.toString(),
         // Ensure userId is a string
         userId: order.userId ? order.userId.toString() : authUser.userId,
+        // Ensure totalPoints is a valid number
+        totalPoints: typeof order.totalPoints === 'number' ? Math.floor(order.totalPoints) : 
+                    typeof order.pointsEarned === 'number' ? Math.floor(order.pointsEarned) : 0,
         // Ensure lastUpdated is present for sorting functionality
         lastUpdated: order.lastUpdated ? 
                      (order.lastUpdated instanceof Date ? order.lastUpdated.toISOString() : order.lastUpdated) : 

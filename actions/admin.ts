@@ -104,6 +104,40 @@ export async function updateOrderStatus(
       try {
         console.log(`ADMIN: Status changed, sending notifications...`);
         
+        // Add points to user account if status changed to "completed"
+        if (status === "completed" && order.userId) {
+          try {
+            // First, ensure we have a valid points value
+            const pointsToAdd = typeof order.totalPoints === 'number' ? Math.floor(order.totalPoints) : 
+                                typeof order.pointsEarned === 'number' ? Math.floor(order.pointsEarned) : 0;
+            
+            if (pointsToAdd > 0) {
+              console.log(`ADMIN: Adding ${pointsToAdd} points to user ${order.userId}`);
+              
+              // Convert userId to ObjectId if it's a string
+              const userObjectId = typeof order.userId === 'string' ? 
+                                   new ObjectId(order.userId) : order.userId;
+              
+              // Update the user's points in the database
+              const updateResult = await usersCollection?.updateOne(
+                { _id: userObjectId },
+                { $inc: { points: pointsToAdd } }
+              );
+              
+              if (updateResult?.modifiedCount === 1) {
+                console.log(`ADMIN: Successfully added ${pointsToAdd} points to user ${order.userId}`);
+              } else {
+                console.error(`ADMIN: Failed to add points to user ${order.userId}`);
+              }
+            } else {
+              console.log(`ADMIN: No points to add for order ${orderId} (value: ${pointsToAdd})`);
+            }
+          } catch (pointsError) {
+            console.error(`ADMIN: Error adding points to user:`, pointsError);
+            // Continue even if points update fails
+          }
+        }
+        
         // 1. First notify all admins about the status change
         console.log(`ADMIN: Notifying all admin clients...`);
         await sendEventToAdmins('order-update', {
@@ -198,16 +232,22 @@ export async function getAdminOrders() {
     const serializedOrders = orders ? orders.map(order => ({
       _id: order._id.toString(),
       userId: order.userId ? order.userId.toString() : null,
-      items: Array.isArray(order.items) ? order.items : [],
-      totalPrice: typeof order.totalPrice === 'number' ? order.totalPrice : 0,
-      totalPoints: typeof order.totalPoints === 'number' ? order.totalPoints : 0,
-      status: typeof order.status === 'string' ? order.status : 'pending',
+      userEmail: order.userEmail || '',
+      userName: order.userName || '',
+      items: order.items || [],
+      totalPrice: typeof order.totalPrice === 'number' ? order.totalPrice : 
+                  typeof order.total === 'number' ? order.total : 0,
+      totalPoints: typeof order.totalPoints === 'number' ? Math.floor(order.totalPoints) : 
+                   typeof order.pointsEarned === 'number' ? Math.floor(order.pointsEarned) : 0,
+      status: order.status || 'pending',
       createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : 
-                 typeof order.createdAt === 'string' ? order.createdAt : new Date().toISOString(),
-      lastUpdated: order.lastUpdated instanceof Date ? order.lastUpdated.toISOString() :
-                  typeof order.lastUpdated === 'string' ? order.lastUpdated :
-                  (order.createdAt instanceof Date ? order.createdAt.toISOString() : new Date().toISOString()),
-      customerInfo: order.customerInfo || { name: '', email: '', address: '' },
+                (typeof order.createdAt === 'string' ? order.createdAt : new Date().toISOString()),
+      updatedAt: order.updatedAt instanceof Date ? order.updatedAt.toISOString() : 
+                (typeof order.updatedAt === 'string' ? order.updatedAt : order.createdAt instanceof Date ? order.createdAt.toISOString() : new Date().toISOString()),
+      lastUpdated: order.lastUpdated instanceof Date ? order.lastUpdated.toISOString() : 
+                  (typeof order.lastUpdated === 'string' ? order.lastUpdated : 
+                   order.updatedAt instanceof Date ? order.updatedAt.toISOString() : 
+                   order.createdAt instanceof Date ? order.createdAt.toISOString() : new Date().toISOString())
     })) : [];
     
     return { 
@@ -220,6 +260,96 @@ export async function getAdminOrders() {
     return { 
       success: false, 
       error: "An error occurred while fetching orders" 
+    };
+  }
+}
+
+/**
+ * Normalizes order data in the database to ensure consistent field names and types
+ */
+export async function normalizeOrderPoints() {
+  try {
+    // Check if user is authenticated and is an admin
+    const authUser = await getAuthUser();
+    
+    if (!authUser) {
+      return { success: false, error: "Unauthorized" };
+    }
+    
+    // Verify admin status
+    const usersCollection = await getCollection("users");
+    const userData = await usersCollection?.findOne({ 
+      _id: ObjectId.createFromHexString(authUser.userId as string) 
+    });
+    
+    if (!userData || !userData.isAdmin) {
+      return { success: false, error: "Access denied. Admin privileges required." };
+    }
+    
+    // Get all orders that need normalization (those with pointsEarned but no totalPoints)
+    const ordersCollection = await getCollection("orders");
+    const orders = await ordersCollection?.find({
+      $or: [
+        { pointsEarned: { $exists: true } },
+        { totalPoints: { $exists: false } }
+      ]
+    }).toArray();
+    
+    if (!orders || orders.length === 0) {
+      return { success: true, message: "No orders need normalization.", count: 0 };
+    }
+    
+    let normalizedCount = 0;
+    
+    // Process each order
+    for (const order of orders) {
+      // Calculate points from items if available
+      let calculatedPoints = 0;
+      
+      if (Array.isArray(order.items)) {
+        calculatedPoints = order.items.reduce((sum, item) => {
+          const itemPoints = typeof item.points === 'number' ? Math.floor(item.points) : 0;
+          const quantity = typeof item.quantity === 'number' ? Math.floor(item.quantity) : 1;
+          return sum + (itemPoints * quantity);
+        }, 0);
+      }
+      
+      // Determine the best points value to use
+      let pointsValue = 0;
+      
+      if (typeof order.totalPoints === 'number' && !isNaN(order.totalPoints)) {
+        pointsValue = Math.floor(order.totalPoints);
+      } else if (typeof order.pointsEarned === 'number' && !isNaN(order.pointsEarned)) {
+        pointsValue = Math.floor(order.pointsEarned);
+      } else if (calculatedPoints > 0) {
+        pointsValue = calculatedPoints;
+      }
+      
+      // Update the order in the database
+      const updateResult = await ordersCollection?.updateOne(
+        { _id: order._id },
+        { 
+          $set: { totalPoints: pointsValue },
+          $unset: { pointsEarned: "" } // Remove the old field
+        }
+      );
+      
+      if (updateResult?.modifiedCount === 1) {
+        normalizedCount++;
+      }
+    }
+    
+    return { 
+      success: true, 
+      message: `Successfully normalized ${normalizedCount} orders.`,
+      count: normalizedCount
+    };
+    
+  } catch (error) {
+    console.error("Error normalizing orders:", error);
+    return { 
+      success: false, 
+      error: "An error occurred while normalizing orders" 
     };
   }
 } 
