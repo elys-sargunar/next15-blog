@@ -31,7 +31,6 @@ export default function Dashboard() {
   const [userOrders, setUserOrders] = useState<ClientOrder[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch data on component mount
   useEffect(() => {
